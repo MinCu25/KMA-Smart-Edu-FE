@@ -1,0 +1,35 @@
+export type Role = "student" | "academic-admin" | "system-admin" | "lecturer";
+export type Page =
+  | "academic"
+  | "register"
+  | "schedule"
+  | "chat"
+  | "chat-graduation"
+  | "chat-history"
+  | "profile"
+  | "admin"
+  | "academic-dashboard"
+  | "admissions"
+  | "academic-timetable"
+  | "knowledge"
+  | "teachers"
+  | "subjects"
+  | "classes"
+  | "rooms"
+  | "terms"
+  | "lecturer-dashboard"
+  | "teaching-classes"
+  | "grades"
+  | "teaching-schedule"
+  | "system-dashboard"
+  | "accounts"
+  | "permissions"
+  | "audit"
+  | "settings"
+  | "student-password"
+  | "lecturer-password"
+  | "academic-password"
+  | "system-password";
+export type Navigate = (page: Page) => void;
+export type PageProps = { onNavigate: Navigate };
+export type NavigationItem = { id: Page; label: string };

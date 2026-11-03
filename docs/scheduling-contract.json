@@ -1,0 +1,37 @@
+{
+  "sha": "8253c0e2965b53bab1a3ab47e068a472a2e99255",
+  "files": [
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/scheduling/api/dto/CreateModuleClassRequest.java",
+      "content": "package com.eduhub.edu_hub.scheduling.api.dto;\n\nimport com.eduhub.edu_hub.scheduling.api.serialization.ClassCapacityDeserializer;\nimport com.eduhub.edu_hub.scheduling.domain.policy.ModuleClassPolicy;\nimport jakarta.validation.constraints.Max;\nimport jakarta.validation.constraints.Min;\nimport jakarta.validation.constraints.NotNull;\nimport lombok.Data;\nimport tools.jackson.databind.annotation.JsonDeserialize;\n\n@Data\npublic class CreateModuleClassRequest {\n    @NotNull\n    @Min(1)\n    @Max(ModuleClassPolicy.MAX_CAPACITY)\n    @JsonDeserialize(using = ClassCapacityDeserializer.class)\n    private Integer maxCapacity = ModuleClassPolicy.MAX_CAPACITY;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/scheduling/api/dto/CreateModuleClassesRequest.java",
+      "content": "package com.eduhub.edu_hub.scheduling.api.dto;\n\nimport jakarta.validation.Valid;\nimport jakarta.validation.constraints.*;\nimport java.util.List;\nimport lombok.Data;\n\n@Data\npublic class CreateModuleClassesRequest {\n    @NotEmpty\n    private List<@NotNull @Valid SubjectClassesRequest> subjects;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/scheduling/api/dto/SubjectClassesRequest.java",
+      "content": "package com.eduhub.edu_hub.scheduling.api.dto;\n\nimport jakarta.validation.Valid;\nimport jakarta.validation.constraints.*;\nimport java.util.List;\nimport lombok.Data;\n\n@Data\npublic class SubjectClassesRequest {\n    @NotNull\n    @Positive\n    private Long subjectId;\n\n    private boolean confirmAdditionalClasses;\n\n    @NotEmpty\n    private List<@NotNull @Valid CreateModuleClassRequest> classes;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/scheduling/api/dto/UpdateModuleClassRequest.java",
+      "content": "package com.eduhub.edu_hub.scheduling.api.dto;\n\nimport com.eduhub.edu_hub.scheduling.api.serialization.ClassCapacityDeserializer;\nimport com.eduhub.edu_hub.scheduling.domain.policy.ModuleClassPolicy;\nimport jakarta.validation.constraints.Max;\nimport jakarta.validation.constraints.Min;\nimport jakarta.validation.constraints.NotBlank;\nimport jakarta.validation.constraints.NotNull;\nimport lombok.Data;\nimport tools.jackson.databind.annotation.JsonDeserialize;\n\n@Data\npublic class UpdateModuleClassRequest {\n    @NotNull(message = \"Sức chứa không được để trống\")\n    @Min(1)\n    @Max(ModuleClassPolicy.MAX_CAPACITY)\n    @JsonDeserialize(using = ClassCapacityDeserializer.class)\n    private Integer maxCapacity;\n\n    @NotBlank(message = \"Lý do cập nhật không được để trống\")\n    private String reason;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/scheduling/api/dto/CancelModuleClassRequest.java",
+      "content": "package com.eduhub.edu_hub.scheduling.api.dto;\n\nimport jakarta.validation.constraints.NotBlank;\nimport lombok.Data;\n\n@Data\npublic class CancelModuleClassRequest {\n    @NotBlank(message = \"Lý do hủy lớp không được để trống\")\n    private String reason;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/scheduling/api/dto/ModuleClassSearchRequest.java",
+      "content": "package com.eduhub.edu_hub.scheduling.api.dto;\n\nimport com.eduhub.edu_hub.scheduling.domain.enums.ModuleClassStatus;\nimport jakarta.validation.constraints.*;\nimport lombok.Data;\n\n@Data\npublic class ModuleClassSearchRequest {\n    private String keyword;\n\n    @Positive\n    private Long semesterId;\n\n    @Positive\n    private Long subjectId;\n\n    @Positive\n    private Long lecturerId;\n\n    private ModuleClassStatus status;\n\n    @Min(0)\n    private int page = 0;\n\n    @Min(1)\n    private int size = 20;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/scheduling/api/dto/ModuleClassResponse.java",
+      "content": "package com.eduhub.edu_hub.scheduling.api.dto;\n\nimport com.eduhub.edu_hub.scheduling.domain.enums.ModuleClassStatus;\nimport java.util.List;\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class ModuleClassResponse {\n    private Long id;\n    private Long semesterId;\n    private Long subjectId;\n    private Long lecturerId;\n    private int classSequence;\n    private String dataSource;\n    private String moduleClassCode;\n    private String subjectCode;\n    private String subjectName;\n    private int credits;\n    private String lecturerName;\n    private String semesterCode;\n    private int maxCapacity;\n    private int currentSize;\n    private ModuleClassStatus status; // UNSCHEDULED, SCHEDULED, OPEN, CANCELLED\n    private List<ClassScheduleResponse> schedules;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/scheduling/api/dto/OpeningSubjectResponse.java",
+      "content": "package com.eduhub.edu_hub.scheduling.api.dto;\n\nimport lombok.*;\n\n@Data\n@Builder\npublic class OpeningSubjectResponse {\n    private Long subjectId;\n    private String subjectCode;\n    private String subjectName;\n    private int credits;\n    private int onTimeStudentCount;\n    private int retakeStudentCount;\n    private int missedStudentCount;\n    private int expectedStudentCount;\n    private int recommendedClassCount;\n    private long existingClassCount;\n    private String dataSource;\n    private boolean historyComplete;\n}\n"
+    }
+  ]
+}

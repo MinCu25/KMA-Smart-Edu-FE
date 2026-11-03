@@ -1,0 +1,85 @@
+const legacyGrades = [
+  {
+    name: "Giải tích 2",
+    credits: 3,
+    process: 6.5,
+    total: 7.2,
+    scale: 2.8,
+    letter: "B",
+    pass: true,
+  },
+  {
+    name: "Vật lý đại cương",
+    credits: 3,
+    process: 4.0,
+    total: 3.5,
+    scale: 1.0,
+    letter: "D",
+    pass: true,
+  },
+  {
+    name: "Kỹ thuật lập trình",
+    credits: 3,
+    process: 5.0,
+    total: 3.8,
+    scale: 0.0,
+    letter: "F",
+    pass: false,
+  },
+  {
+    name: "Tiếng Anh 2",
+    credits: 2,
+    process: 8.0,
+    total: 8.4,
+    scale: 3.5,
+    letter: "B+",
+    pass: true,
+  },
+];
+
+import type {
+  EnrollmentResponse,
+  StudentAcademicSummaryResponse,
+} from "../../types/dto";
+export const gradeResponses: EnrollmentResponse[] = legacyGrades.map(
+  (g, i) => ({
+    id: 100 + i,
+    studentId: 1,
+    studentCode: "CT080101",
+    studentName: "Nguyễn Văn An",
+    moduleClassId: 100 + i,
+    moduleClassCode: `DEMO.${100 + i}`,
+    subjectCode: `DEMO${100 + i}`,
+    subjectName: g.name,
+    credits: g.credits,
+    registeredAt: "2025-09-01T08:00:00",
+    status: g.pass ? "COMPLETED" : "FAILED",
+    componentScore1: null,
+    componentScore2: null,
+    processScore: g.process,
+    finalExamScore: null,
+    courseScore10: g.total,
+    courseScoreLetter: g.letter,
+    courseScore4: g.scale,
+  }),
+);
+export const academicSummary: StudentAcademicSummaryResponse = {
+  studentCode: "CT080101",
+  fullName: "Nguyễn Văn An",
+  className: "CT08A",
+  majorName: "Công nghệ thông tin",
+  cohortCode: "K2026",
+  cumulativeGpa: 3.21,
+  accumulatedCredits: 78,
+  totalRequiredCredits: 130,
+  targetGpa: 3.4,
+  academicWarningStatus: "Cảnh báo học vụ",
+  semesterGrades: [
+    {
+      semesterCode: "HK22526",
+      semesterGpa: 1.92,
+      credits: 11,
+      courses: gradeResponses,
+    },
+  ],
+};

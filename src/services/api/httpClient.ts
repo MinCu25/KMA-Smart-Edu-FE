@@ -1,0 +1,61 @@
+import type { ApiResponse, FieldErrorDetail } from "../../types/dto";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "");
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public code?: number,
+    public errors: FieldErrorDetail[] = [],
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+/** Paths/methods must come from the backend Controller once implemented. */
+export async function apiRequest<T>(
+  path: string,
+  init: RequestInit = {},
+  accessToken?: string,
+): Promise<T | undefined> {
+  if (!API_BASE_URL) throw new Error("Chưa cấu hình VITE_API_BASE_URL.");
+  const headers = new Headers(init.headers);
+  if (
+    init.body &&
+    !(init.body instanceof FormData) &&
+    !headers.has("Content-Type")
+  )
+    headers.set("Content-Type", "application/json");
+  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/${path.replace(/^\//, "")}`, {
+      ...init,
+      headers,
+    });
+  } catch {
+    throw new ApiError(
+      "Không kết nối được backend. Kiểm tra địa chỉ API và CORS.",
+      0,
+    );
+  }
+  if (response.status === 204) return undefined;
+  let body: ApiResponse<T>;
+  try {
+    body = await response.json();
+  } catch {
+    throw new ApiError("Backend không trả về JSON hợp lệ.", response.status);
+  }
+  if (!response.ok || body.success === false)
+    throw new ApiError(
+      body.message || `Lỗi HTTP ${response.status}`,
+      response.status,
+      body.code ?? undefined,
+      body.errors ?? [],
+    );
+  if (body.success !== true)
+    throw new ApiError(
+      "Response không đúng cấu trúc ApiResponse.",
+      response.status,
+    );
+  return body.data;
+}

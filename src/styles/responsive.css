@@ -1,0 +1,448 @@
+@media (min-width: 1500px) {
+  .student-header {
+    padding-left: max(32px, calc((100vw - 1536px) / 2));
+    padding-right: max(32px, calc((100vw - 1536px) / 2));
+  }
+  .register-layout {
+    grid-template-columns: minmax(0, 2.55fr) minmax(300px, 1fr);
+  }
+  .registration-table {
+    font-size: 14px;
+  }
+  .registration-table td {
+    padding: 16px 12px;
+  }
+  .open-courses {
+    min-height: 650px;
+  }
+}
+@media (max-width: 1200px) {
+  .student-header {
+    gap: 22px;
+    padding: 0 25px;
+  }
+  .student-header nav {
+    gap: 22px;
+  }
+  .student-header nav button {
+    font-size: 13px;
+  }
+  main {
+    padding: 25px;
+  }
+  .register-layout {
+    grid-template-columns: minmax(0, 2.4fr) minmax(250px, 1fr);
+  }
+  .card {
+    padding: 17px;
+  }
+  .registration-table {
+    font-size: 12px;
+  }
+  .registration-table td,
+  .registration-table th {
+    padding: 10px 7px;
+  }
+  .registration-table .badge {
+    font-size: 10px;
+  }
+  .registration-table .btn {
+    font-size: 11px;
+    padding: 8px;
+  }
+  .registration-table small {
+    font-size: 11px;
+  }
+  .registration-side .card {
+    padding: 17px;
+  }
+  .selected-courses li {
+    font-size: 12px;
+  }
+  .credit-value {
+    font-size: 25px;
+  }
+  .credit-value span {
+    font-size: 11px;
+    margin-left: 5px;
+  }
+  .admin-sidebar {
+    width: 205px;
+  }
+  .admin-app main {
+    margin-left: 205px;
+    padding: 25px;
+  }
+  .admin-filter {
+    gap: 9px;
+    grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr auto;
+  }
+  .admin-filter select,
+  .admin-filter input {
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+  .admin-table {
+    font-size: 12px;
+  }
+  .admin-table th {
+    font-size: 11px;
+  }
+  .admin-table td {
+    padding: 15px 8px;
+  }
+  .admin-card {
+    padding: 18px;
+  }
+  .row-actions .btn {
+    padding: 6px;
+    font-size: 10px;
+  }
+  .overview-info {
+    gap: 18px;
+    font-size: 12px;
+  }
+}
+@media (max-width: 1000px) {
+  .register-layout {
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: 13px;
+  }
+  .registration-table {
+    min-width: 680px;
+  }
+  .brand {
+    font-size: 15px;
+  }
+  .student-header nav {
+    gap: 17px;
+  }
+  .student-header {
+    gap: 24px;
+  }
+  .student-header nav button {
+    font-size: 12px;
+  }
+  .account-button b {
+    font-size: 12px;
+  }
+  .account-button span {
+    font-size: 11px;
+  }
+  h1 {
+    font-size: 23px;
+  }
+  .page-title p {
+    font-size: 12px;
+  }
+  .overview-info {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .metric-grid {
+    gap: 13px;
+  }
+  .metric-grid strong {
+    font-size: 24px;
+  }
+  .admin-filter {
+    grid-template-columns: 2fr 1fr 1fr;
+  }
+  .admin-table {
+    min-width: 760px;
+  }
+  .admin-sidebar {
+    width: 190px;
+    padding: 22px 12px;
+  }
+  .admin-sidebar .brand {
+    font-size: 13px;
+    gap: 7px;
+  }
+  .admin-menu button {
+    font-size: 12px;
+  }
+  .admin-app main {
+    margin-left: 190px;
+    padding: 23px;
+  }
+  .profile-layout {
+    grid-template-columns: 2.5fr 1fr;
+  }
+  .card h2 {
+    font-size: 15px;
+  }
+}
+@media (max-width: 760px) {
+  .student-header {
+    height: auto;
+    min-height: 65px;
+    padding: 16px 18px;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .student-header .brand {
+    font-size: 15px;
+  }
+  .mobile-menu {
+    display: flex;
+    border: 0;
+    background: none;
+    padding: 0;
+    margin-left: auto;
+    color: #53617a;
+  }
+  .student-header nav {
+    display: none;
+    order: 4;
+    width: 100%;
+    justify-content: space-between;
+    gap: 10px;
+    border-top: 1px solid #edf0f5;
+    padding-top: 7px;
+  }
+  .student-header nav.expanded {
+    display: flex;
+  }
+  .student-header nav button {
+    font-size: 11px;
+    padding: 12px 0;
+  }
+  .account {
+    margin: 0 0 0 5px;
+  }
+  .account-button b {
+    font-size: 11px;
+  }
+  .account-button span {
+    font-size: 10px;
+  }
+  main {
+    padding: 23px 17px;
+  }
+  .page-title {
+    align-items: flex-start;
+    margin-bottom: 17px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  h1 {
+    font-size: 22px;
+  }
+  .page-title p {
+    font-size: 12px;
+  }
+  .page-title > .badge {
+    font-size: 10px;
+  }
+  .notice {
+    font-size: 12px;
+    padding: 11px 12px;
+    line-height: 1.6;
+  }
+  .register-layout {
+    grid-template-columns: 1fr;
+  }
+  .registration-side {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .open-courses {
+    min-height: 0;
+    margin-bottom: 2px;
+  }
+  .registration-table {
+    min-width: 720px;
+  }
+  .registration-table td {
+    padding: 13px 9px;
+  }
+  .registration-side .card {
+    padding: 18px;
+  }
+  .selected-courses li {
+    font-size: 13px;
+  }
+  .card {
+    padding: 17px;
+    border-radius: 9px;
+  }
+  .metric-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .metric-grid .card {
+    margin-bottom: 0;
+  }
+  .metric-grid {
+    margin-bottom: 16px;
+  }
+  .overview-info {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .metric-grid strong {
+    font-size: 23px;
+  }
+  .bottom-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .card-heading h2 {
+    font-size: 14px;
+  }
+  .card-heading select {
+    font-size: 11px;
+    padding: 8px;
+    max-width: 175px;
+  }
+  .bottom-grid .badge {
+    font-size: 10px;
+  }
+  table:not(.registration-table) {
+    min-width: 650px;
+  }
+  table {
+    font-size: 12px;
+  }
+  th {
+    font-size: 11px;
+  }
+  .calendar-controls {
+    flex-wrap: wrap;
+    font-size: 12px;
+  }
+  .calendar-controls > span {
+    display: none;
+  }
+  .calendar-controls b {
+    font-size: 11px;
+  }
+  .calendar {
+    grid-template-rows: 55px repeat(9, 44px);
+  }
+  .profile-layout {
+    grid-template-columns: 1fr;
+  }
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 17px;
+  }
+  .chat-tabs {
+    gap: 16px;
+    overflow: auto;
+    white-space: nowrap;
+  }
+  .chat-tabs button {
+    font-size: 11px;
+  }
+  .chat-card {
+    min-height: 520px;
+  }
+  .chat-messages {
+    min-height: 350px;
+    padding: 5px 0 20px;
+  }
+  .message {
+    max-width: 92%;
+    font-size: 12px;
+    padding: 12px;
+  }
+  .suggestions {
+    gap: 9px;
+  }
+  .suggestions .btn {
+    font-size: 11px;
+  }
+  .chat-form {
+    gap: 8px;
+  }
+  .chat-form input {
+    font-size: 12px;
+  }
+  .chat-form .btn {
+    font-size: 12px;
+  }
+  .admin-sidebar {
+    position: relative;
+    width: 100%;
+    padding: 16px 18px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 15px;
+  }
+  .admin-sidebar .brand {
+    margin: 0;
+    font-size: 15px;
+  }
+  .admin-menu {
+    display: none;
+  }
+  .admin-bottom {
+    margin: 0 0 0 auto;
+    flex-direction: row;
+    padding: 0;
+    border: 0;
+    gap: 4px;
+  }
+  .admin-bottom button {
+    font-size: 10px;
+    padding: 7px;
+  }
+  .admin-app main {
+    margin-left: 0;
+    padding: 23px 17px;
+  }
+  .admin-app .page-title {
+    margin-bottom: 20px;
+  }
+  .admin-app .page-title h1 {
+    font-size: 21px;
+  }
+  .admin-app .page-title .btn {
+    font-size: 11px;
+  }
+  .admin-filter {
+    grid-template-columns: 1fr 1fr;
+    gap: 13px;
+  }
+  .admin-filter label:first-child {
+    grid-column: 1/-1;
+  }
+  .admin-filter > .btn {
+    align-self: end;
+  }
+  .admin-card {
+    padding: 16px;
+  }
+  .admin-table {
+    min-width: 820px !important;
+  }
+  .table-footer {
+    font-size: 10px;
+  }
+  footer {
+    font-size: 9px;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 22px;
+  }
+  footer > div {
+    gap: 9px;
+  }
+  .login-box {
+    width: 380px;
+    padding: 25px;
+  }
+  .dialog {
+    padding: 23px;
+  }
+  .dialog h2 {
+    font-size: 16px;
+  }
+  .toast {
+    font-size: 12px;
+    width: max-content;
+  }
+}

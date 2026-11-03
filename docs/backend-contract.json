@@ -1,0 +1,253 @@
+{
+  "sha": "e658bc77b34ad4674ba42f23540350a6ab15e614",
+  "files": [
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/academic/api/dto/BatchUpdateScoreRequest.java",
+      "content": "package com.eduhub.edu_hub.academic.api.dto;\n\nimport jakarta.validation.constraints.NotNull;\nimport lombok.Data;\nimport org.springframework.web.multipart.MultipartFile;\n\n@Data\npublic class BatchUpdateScoreRequest {\n    @NotNull\n    private Long moduleClassId;\n\n    private MultipartFile file; // Excel\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/academic/api/dto/SemesterGradeResponse.java",
+      "content": "package com.eduhub.edu_hub.academic.api.dto;\n\nimport com.eduhub.edu_hub.enrollment.api.dto.EnrollmentResponse;\nimport java.math.BigDecimal;\nimport java.util.List;\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class SemesterGradeResponse {\n    private String semesterCode;\n    private BigDecimal semesterGpa;\n    private int credits;\n    private List<EnrollmentResponse> courses;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/academic/api/dto/StudentAcademicSummaryResponse.java",
+      "content": "package com.eduhub.edu_hub.academic.api.dto;\n\nimport java.math.BigDecimal;\nimport java.util.List;\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class StudentAcademicSummaryResponse {\n    private String studentCode;\n    private String fullName;\n    private String className;\n    private String majorName;\n    private String cohortCode;\n    private BigDecimal cumulativeGpa;\n    private int accumulatedCredits;\n    private int totalRequiredCredits;\n    private BigDecimal targetGpa;\n    private String academicWarningStatus;\n    private List<SemesterGradeResponse> semesterGrades;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/academic/api/dto/UpdateProcessScoreRequest.java",
+      "content": "package com.eduhub.edu_hub.academic.api.dto;\n\nimport jakarta.validation.constraints.NotNull;\nimport java.math.BigDecimal;\nimport lombok.Data;\n\n@Data\npublic class UpdateProcessScoreRequest {\n    @NotNull\n    private Long enrollmentId;\n\n    private BigDecimal componentScore1;\n    private BigDecimal componentScore2;\n    private String note;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/academic/application/AcademicFacade.java",
+      "content": "package com.eduhub.edu_hub.academic.application;\n\nimport com.eduhub.edu_hub.academic.api.dto.StudentAcademicSummaryResponse;\nimport java.math.BigDecimal;\n\npublic interface AcademicFacade {\n\n    /** Tính GPA tích lũy hiện tại */\n    BigDecimal calculateCumulativeGpa(Long studentId);\n\n    /** Tính số tín chỉ tích lũy */\n    int calculateAccumulatedCredits(Long studentId);\n\n    /** Lấy tóm tắt học vụ của sinh viên */\n    StudentAcademicSummaryResponse getStudentAcademicSummary(Long studentId);\n\n    /** Kiểm tra và cập nhật cảnh báo học vụ */\n    void evaluateAcademicWarning(Long studentId);\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/aiassistant/api/dto/ChatRequest.java",
+      "content": "package com.eduhub.edu_hub.aiassistant.api.dto;\n\nimport jakarta.validation.constraints.NotBlank;\nimport jakarta.validation.constraints.Size;\nimport lombok.Data;\n\n@Data\npublic class ChatRequest {\n    private String sessionId; // null = tạo mới\n\n    @NotBlank\n    @Size(max = 2000)\n    private String message;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/aiassistant/api/dto/ChatResponse.java",
+      "content": "package com.eduhub.edu_hub.aiassistant.api.dto;\n\nimport com.eduhub.edu_hub.shared.enums.AiIntent;\nimport java.util.List;\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class ChatResponse {\n    private String sessionId;\n    private String messageId;\n    private String content;\n    private AiIntent intent; // KNOWLEDGE / GRADUATION / OUT_OF_SCOPE\n    private List<CitationResponse> citations;\n    private GraduationScenarioResponse scenario; // nếu là tư vấn tốt nghiệp\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/aiassistant/api/dto/CitationResponse.java",
+      "content": "package com.eduhub.edu_hub.aiassistant.api.dto;\n\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class CitationResponse {\n    private String sourceTitle;\n    private String sectionTitle;\n    private Integer pageNumber;\n    private String snippet;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/aiassistant/api/dto/GraduationScenarioResponse.java",
+      "content": "package com.eduhub.edu_hub.aiassistant.api.dto;\n\nimport java.math.BigDecimal;\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class GraduationScenarioResponse {\n    private BigDecimal targetGpa;\n    private BigDecimal currentGpa;\n    private BigDecimal requiredGpa;\n    private BigDecimal maxPossibleGpa;\n    private String viabilityStatus;\n    private Object roadmap; // JSON\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/aiassistant/domain/enums/ViabilityStatus.java",
+      "content": "package com.eduhub.edu_hub.aiassistant.domain.enums;\n\npublic enum ViabilityStatus {\n    VIABLE, // Khả thi\n    NOT_VIABLE, // Không khả thi\n    CERTAIN // Chắc chắn\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/curriculum/api/dto/CreateSubjectRequest.java",
+      "content": "package com.eduhub.edu_hub.curriculum.api.dto;\n\nimport jakarta.validation.constraints.Max;\nimport jakarta.validation.constraints.Min;\nimport jakarta.validation.constraints.NotBlank;\nimport jakarta.validation.constraints.NotNull;\nimport lombok.Data;\n\n@Data\npublic class CreateSubjectRequest {\n    @NotBlank(message = \"Mã học phần không được để trống\")\n    private String subjectCode;\n\n    @NotBlank(message = \"Tên học phần không được để trống\")\n    private String subjectName;\n\n    @NotNull(message = \"Số tín chỉ không được để trống\")\n    @Min(value = 1, message = \"Số tín chỉ phải từ 1 đến 5\")\n    @Max(value = 5, message = \"Số tín chỉ phải từ 1 đến 5\")\n    private Integer credits;\n\n    private String description;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/curriculum/api/dto/CurriculumResponse.java",
+      "content": "package com.eduhub.edu_hub.curriculum.api.dto;\n\nimport java.util.List;\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class CurriculumResponse {\n    private Long id;\n    private String majorName;\n    private String cohortCode;\n    private String trainingType; // CHINH_QUY, LIEN_THONG, VAN_BANG_2\n    private int totalCredits;\n    private List<CurriculumSubjectResponse> subjects;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/curriculum/api/dto/CurriculumSubjectResponse.java",
+      "content": "package com.eduhub.edu_hub.curriculum.api.dto;\n\nimport com.eduhub.edu_hub.curriculum.domain.enums.SubjectType;\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class CurriculumSubjectResponse {\n    private Long subjectId;\n    private String subjectCode;\n    private String subjectName;\n    private int credits;\n    private int recommendSemester;\n    private SubjectType subjectType; // REQUIRED / ELECTIVE\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/curriculum/api/dto/SetPrerequisiteRequest.java",
+      "content": "package com.eduhub.edu_hub.curriculum.api.dto;\n\nimport jakarta.validation.constraints.NotNull;\nimport jakarta.validation.constraints.Positive;\nimport java.util.List;\nimport lombok.Data;\n\n@Data\npublic class SetPrerequisiteRequest {\n    @NotNull(message = \"Danh sách môn tiên quyết không được null; dùng [] để gỡ hết\")\n    private List<@NotNull @Positive Long> prerequisiteSubjectIds;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/curriculum/api/dto/SubjectResponse.java",
+      "content": "package com.eduhub.edu_hub.curriculum.api.dto;\n\nimport com.eduhub.edu_hub.curriculum.domain.enums.SubjectStatus;\nimport java.util.List;\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class SubjectResponse {\n    private Long id;\n    private String subjectCode;\n    private String subjectName;\n    private int credits;\n    private String description;\n    private SubjectStatus status;\n    private List<SubjectSimpleResponse> prerequisites;\n    private List<SubjectSimpleResponse> requiredBy; // học phần lấy cái này làm tiên quyết\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/curriculum/api/dto/SubjectSimpleResponse.java",
+      "content": "package com.eduhub.edu_hub.curriculum.api.dto;\n\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class SubjectSimpleResponse {\n    private Long id;\n    private String subjectCode;\n    private String subjectName;\n    private int credits;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/curriculum/api/dto/UpdateSubjectRequest.java",
+      "content": "package com.eduhub.edu_hub.curriculum.api.dto;\n\nimport jakarta.validation.constraints.Max;\nimport jakarta.validation.constraints.Min;\nimport jakarta.validation.constraints.NotBlank;\nimport jakarta.validation.constraints.NotNull;\nimport lombok.Data;\n\n@Data\npublic class UpdateSubjectRequest {\n    private String subjectCode;\n\n    @NotBlank(message = \"Tên học phần không được để trống\")\n    private String subjectName;\n\n    @NotNull(message = \"Số tín chỉ không được để trống\")\n    @Min(value = 1, message = \"Số tín chỉ phải từ 1 đến 5\")\n    @Max(value = 5, message = \"Số tín chỉ phải từ 1 đến 5\")\n    private Integer credits;\n\n    private String description;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/curriculum/application/CurriculumFacade.java",
+      "content": "package com.eduhub.edu_hub.curriculum.application;\n\nimport com.eduhub.edu_hub.curriculum.api.dto.CurriculumResponse;\nimport com.eduhub.edu_hub.curriculum.api.dto.SubjectResponse;\nimport java.util.List;\nimport java.util.Optional;\n\npublic interface CurriculumFacade {\n    Optional<SubjectResponse> findSubjectById(Long subjectId);\n\n    Optional<SubjectResponse> findSubjectByCode(String subjectCode);\n\n    List<SubjectResponse> findPrerequisites(Long subjectId);\n\n    /** Kiểm tra sinh viên đã hoàn thành đủ môn tiên quyết chưa */\n    boolean checkPrerequisitesMet(Long studentId, Long subjectId);\n\n    Optional<CurriculumResponse> findCurriculum(Long majorId, Long cohortId);\n\n    /** Lấy danh sách học phần còn thiếu của sinh viên theo CTĐT */\n    List<SubjectResponse> findRemainingSubjects(Long studentId);\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/curriculum/domain/enums/SubjectStatus.java",
+      "content": "package com.eduhub.edu_hub.curriculum.domain.enums;\n\npublic enum SubjectStatus {\n    ACTIVE,\n    INACTIVE,\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/curriculum/domain/enums/SubjectType.java",
+      "content": "package com.eduhub.edu_hub.curriculum.domain.enums;\n\npublic enum SubjectType {\n    REQUIRED,\n    ELECTIVE\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/enrollment/api/dto/EnrollmentResponse.java",
+      "content": "package com.eduhub.edu_hub.enrollment.api.dto;\n\nimport java.math.BigDecimal;\nimport java.time.LocalDateTime;\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class EnrollmentResponse {\n    private Long id;\n    private Long studentId;\n    private String studentCode;\n    private String studentName;\n    private Long moduleClassId;\n    private String moduleClassCode;\n    private String subjectCode;\n    private String subjectName;\n    private int credits;\n    private LocalDateTime registeredAt;\n    private String status; // REGISTERED / DROPPED / COMPLETED / FAILED\n    // điểm (không có thì null)\n    private BigDecimal componentScore1;\n    private BigDecimal componentScore2;\n    private BigDecimal processScore;\n    private BigDecimal finalExamScore;\n    private BigDecimal courseScore10;\n    private String courseScoreLetter;\n    private BigDecimal courseScore4;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/enrollment/api/dto/RegisterModuleClassRequest.java",
+      "content": "package com.eduhub.edu_hub.enrollment.api.dto;\n\nimport jakarta.validation.constraints.NotNull;\nimport lombok.Data;\n\n@Data\npublic class RegisterModuleClassRequest {\n    @NotNull\n    private Long moduleClassId;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/enrollment/api/dto/RegistrationResult.java",
+      "content": "package com.eduhub.edu_hub.enrollment.api.dto;\n\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class RegistrationResult {\n    private boolean success;\n    private String message;\n    private EnrollmentResponse enrollment;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/enrollment/application/EnrollmentFacade.java",
+      "content": "package com.eduhub.edu_hub.enrollment.application;\n\nimport com.eduhub.edu_hub.enrollment.api.dto.EnrollmentResponse;\nimport java.util.List;\nimport java.util.Optional;\n\npublic interface EnrollmentFacade {\n\n    Optional<EnrollmentResponse> findById(Long enrollmentId);\n\n    List<EnrollmentResponse> findByStudentAndSemester(Long studentId, Long semesterId);\n\n    List<EnrollmentResponse> findByModuleClass(Long moduleClassId);\n\n    boolean isEnrolled(Long studentId, Long moduleClassId);\n\n    /** Lấy điểm của sinh viên (dùng cho academic & AI) */\n    List<EnrollmentResponse> findCompletedEnrollments(Long studentId);\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/enrollment/domain/enums/EnrollmentStatus.java",
+      "content": "package com.eduhub.edu_hub.enrollment.domain.enums;\n\npublic enum EnrollmentStatus {\n    REGISTERED,\n    DROPPED,\n    COMPLETED,\n    FAILED\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/identity/api/dto/ChangePasswordRequest.java",
+      "content": "package com.eduhub.edu_hub.identity.api.dto;\n\nimport jakarta.validation.constraints.NotBlank;\nimport lombok.Data;\n\n@Data\npublic class ChangePasswordRequest {\n    private String currentPassword; // null khi first-login\n\n    @NotBlank\n    private String newPassword;\n\n    @NotBlank\n    private String confirmPassword;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/identity/api/dto/LockUserRequest.java",
+      "content": "package com.eduhub.edu_hub.identity.api.dto;\n\nimport jakarta.validation.constraints.NotBlank;\nimport jakarta.validation.constraints.NotNull;\nimport lombok.Data;\n\n@Data\npublic class LockUserRequest {\n    @NotNull\n    private Long userId;\n\n    @NotBlank\n    private String reason;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/identity/api/dto/LoginRequest.java",
+      "content": "package com.eduhub.edu_hub.identity.api.dto;\n\nimport jakarta.validation.constraints.NotBlank;\nimport lombok.AllArgsConstructor;\nimport lombok.Builder;\nimport lombok.Data;\nimport lombok.NoArgsConstructor;\n\n@Data\n@Builder\n@NoArgsConstructor\n@AllArgsConstructor\npublic class LoginRequest {\n    @NotBlank\n    private String username;\n\n    @NotBlank\n    private String password;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/identity/api/dto/LoginResponse.java",
+      "content": "package com.eduhub.edu_hub.identity.api.dto;\n\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class LoginResponse {\n    private String accessToken;\n    private String refreshToken;\n    private String tokenType = \"Bearer\";\n    private long expiresIn;\n    private UserInfoResponse user;\n    private boolean requirePasswordChange;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/identity/api/dto/ResetPasswordRequest.java",
+      "content": "package com.eduhub.edu_hub.identity.api.dto;\n\nimport jakarta.validation.constraints.NotNull;\nimport lombok.Data;\n\n@Data\npublic class ResetPasswordRequest {\n    @NotNull\n    private Long userId;\n\n    private String reason;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/identity/api/dto/TokenResponse.java",
+      "content": "package com.eduhub.edu_hub.identity.api.dto;\n\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class TokenResponse {\n    private String accessToken;\n    private String refreshToken;\n    private long expiresIn;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/identity/api/dto/UserInfoResponse.java",
+      "content": "package com.eduhub.edu_hub.identity.api.dto;\n\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class UserInfoResponse {\n    private Long id;\n    private String username;\n    private String email;\n    private String role;\n    private String fullName;\n    private boolean isFirstLogin;\n    private String status;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/identity/application/IdentityFacade.java",
+      "content": "package com.eduhub.edu_hub.identity.application;\n\nimport com.eduhub.edu_hub.identity.api.dto.UserInfoResponse;\nimport java.util.Optional;\n\npublic interface IdentityFacade {\n    /** Tạo tài khoản mới (dùng khi tạo SV/GV) */\n    Long createUser(String username, String rawPassword, String roleName, boolean isFirstLogin);\n\n    /** Khóa / mở khóa tài khoản */\n    void lockUser(Long userId, String reason);\n\n    void unlockUser(Long userId);\n\n    /** Vô hiệu hóa / kích hoạt tài khoản (đồng bộ với trạng thái SV/GV) */\n    void disableUser(Long userId);\n\n    void enableUser(Long userId);\n\n    /** Đặt lại mật khẩu tạm thời */\n    String resetPassword(Long userId);\n\n    /** Lấy thông tin cơ bản */\n    Optional<UserInfoResponse> findById(Long userId);\n\n    Optional<UserInfoResponse> findByUsername(String username);\n\n    /** Kiểm tra tồn tại */\n    boolean existsByUsername(String username);\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/people/api/dto/AdministrativeClassResponse.java",
+      "content": "package com.eduhub.edu_hub.people.api.dto;\n\nimport com.eduhub.edu_hub.shared.enums.TrainingType;\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class AdministrativeClassResponse {\n    private Long id;\n    private String className; // ví dụ: CT8A, SE17B\n    private String majorCode;\n    private String majorName;\n    private String cohortCode; // ví dụ: K18, K19\n    private TrainingType trainingType;\n    private Integer currentSize; // sĩ số hiện tại (nếu cần)\n    private Integer maxCapacity; // sức chứa tối đa (nếu có cấu hình)\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/people/api/dto/BatchImportStudentRequest.java",
+      "content": "package com.eduhub.edu_hub.people.api.dto;\n\nimport jakarta.validation.constraints.NotNull;\nimport lombok.Data;\nimport org.springframework.web.multipart.MultipartFile;\n\n@Data\npublic class BatchImportStudentRequest {\n    @NotNull\n    private Long majorId;\n\n    @NotNull\n    private Long cohortId;\n\n    private MultipartFile file; // Excel\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/people/api/dto/CreateLecturerRequest.java",
+      "content": "package com.eduhub.edu_hub.people.api.dto;\n\nimport jakarta.validation.constraints.NotBlank;\nimport jakarta.validation.constraints.NotNull;\nimport java.time.LocalDate;\nimport lombok.Data;\n\n@Data\npublic class CreateLecturerRequest {\n    @NotBlank\n    private String fullName;\n\n    private LocalDate dateOfBirth;\n    private String email;\n    private String phone;\n    private String citizenId;\n\n    @NotNull\n    private Long facultyId;\n\n    private String reason;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/people/api/dto/CreateStudentRequest.java",
+      "content": "package com.eduhub.edu_hub.people.api.dto;\n\nimport jakarta.validation.constraints.NotBlank;\nimport jakarta.validation.constraints.NotNull;\nimport java.math.BigDecimal;\nimport java.time.LocalDate;\nimport lombok.Data;\n\n@Data\npublic class CreateStudentRequest {\n    @NotBlank\n    private String fullName;\n\n    private LocalDate dateOfBirth;\n    private String email;\n    private String phone;\n    private String citizenId;\n\n    @NotNull\n    private Long majorId;\n\n    @NotNull\n    private Long cohortId;\n\n    @NotNull\n    private Long administrativeClassId;\n\n    private BigDecimal entranceScore;\n    private String reason; // lý do thêm mới\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/people/api/dto/LecturerResponse.java",
+      "content": "package com.eduhub.edu_hub.people.api.dto;\n\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class LecturerResponse {\n    private Long id;\n    private String lecturerCode;\n    private String fullName;\n    private String email;\n    private String phone;\n    private String facultyName;\n    private String status;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/people/api/dto/StudentResponse.java",
+      "content": "package com.eduhub.edu_hub.people.api.dto;\n\nimport com.eduhub.edu_hub.shared.enums.ActivityStatus;\nimport java.math.BigDecimal;\nimport java.time.LocalDate;\nimport java.time.LocalDateTime;\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class StudentResponse {\n    private Long id;\n    private String studentCode;\n    private String fullName;\n    private LocalDate dateOfBirth;\n    private String email;\n    private String phone;\n    private String majorName;\n    private String cohortCode;\n    private String className;\n    private String trainingType;\n    private BigDecimal entranceScore;\n    private BigDecimal targetGpa;\n    private ActivityStatus activityStatus; // STUDING, DEACTIVATED, DELETED\n    private String academicWarningStatus;\n    private String statusReason;\n    private LocalDateTime createdAt;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/people/api/dto/StudentSearchRequest.java",
+      "content": "package com.eduhub.edu_hub.people.api.dto;\n\nimport lombok.Data;\n\n@Data\npublic class StudentSearchRequest {\n    private String keyword; // MSSV / họ tên\n    private Long majorId;\n    private Long cohortId;\n    private Long classId;\n    private String activityStatus;\n    private String academicWarningStatus;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/people/api/dto/UpdateStudentRequest.java",
+      "content": "package com.eduhub.edu_hub.people.api.dto;\n\nimport java.math.BigDecimal;\nimport java.time.LocalDate;\nimport lombok.Data;\n\n@Data\npublic class UpdateStudentRequest {\n    private String fullName;\n    private LocalDate dateOfBirth;\n    private String email;\n    private String phone;\n    private String citizenId;\n    private Long administrativeClassId;\n    private BigDecimal targetGpa;\n    private String statusReason;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/people/application/PeopleFacade.java",
+      "content": "package com.eduhub.edu_hub.people.application;\n\nimport com.eduhub.edu_hub.people.api.dto.AdministrativeClassResponse;\nimport com.eduhub.edu_hub.people.api.dto.LecturerResponse;\nimport com.eduhub.edu_hub.people.api.dto.StudentResponse;\nimport java.math.BigDecimal;\nimport java.util.List;\nimport java.util.Optional;\n\npublic interface PeopleFacade {\n    // ===== Student =====\n    Optional<StudentResponse> findStudentById(Long studentId);\n\n    Optional<StudentResponse> findStudentByUserId(Long userId);\n\n    Optional<StudentResponse> findStudentByCode(String studentCode);\n\n    List<StudentResponse> findStudentsByClassId(Long classId);\n\n    boolean existsStudent(Long studentId);\n\n    /** Cập nhật GPA mục tiêu (dùng cho AI) */\n    void updateTargetGpa(Long studentId, BigDecimal targetGpa);\n\n    // ===== Lecturer =====\n    Optional<LecturerResponse> findLecturerById(Long lecturerId);\n\n    Optional<LecturerResponse> findLecturerByUserId(Long userId);\n\n    Optional<LecturerResponse> findLecturerByCode(String lecturerCode);\n\n    boolean existsLecturer(Long lecturerId);\n\n    // ===== Organization =====\n    Optional<AdministrativeClassResponse> findClassById(Long classId);\n\n    List<AdministrativeClassResponse> findClassesByMajorAndCohort(Long majorId, Long cohortId);\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/scheduling/api/dto/ClassScheduleResponse.java",
+      "content": "package com.eduhub.edu_hub.scheduling.api.dto;\n\nimport java.time.LocalDate;\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class ClassScheduleResponse {\n    private Long id;\n    private Long moduleClassId;\n    private String roomCode;\n    private String buildingCode;\n    private String roomNumber;\n    private Integer dayOfWeek; // 2 = Thứ 2 ... 8 = Chủ nhật\n    private Integer lessonOrderStart; // tiết bắt đầu\n    private Integer lessonOrderEnd; // tiết kết thúc\n    private LocalDate startDate; // tuần bắt đầu\n    private LocalDate endDate; // tuần kết thúc\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/scheduling/api/dto/CreateClassScheduleRequest.java",
+      "content": "package com.eduhub.edu_hub.scheduling.api.dto;\n\nimport jakarta.validation.constraints.Max;\nimport jakarta.validation.constraints.Min;\nimport jakarta.validation.constraints.NotNull;\nimport java.time.LocalDate;\nimport lombok.Data;\n\n@Data\npublic class CreateClassScheduleRequest {\n    @NotNull\n    private Long moduleClassId;\n\n    @NotNull\n    private Long roomId;\n\n    @Min(2)\n    @Max(8)\n    private int dayOfWeek;\n\n    @Min(1)\n    private int lessonOrderStart;\n\n    @Min(1)\n    private int lessonOrderEnd;\n\n    private LocalDate startDate;\n    private LocalDate endDate;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/scheduling/api/dto/CreateModuleClassRequest.java",
+      "content": "package com.eduhub.edu_hub.scheduling.api.dto;\n\nimport jakarta.validation.constraints.Min;\nimport jakarta.validation.constraints.NotBlank;\nimport jakarta.validation.constraints.NotNull;\nimport lombok.Data;\n\n@Data\npublic class CreateModuleClassRequest {\n    @NotNull\n    private Long subjectId;\n\n    @NotNull\n    private Long semesterId;\n\n    @NotNull\n    private Long lecturerId;\n\n    @NotBlank\n    private String moduleClassCode; // L01, L02...\n\n    @Min(1)\n    private int maxCapacity;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/scheduling/api/dto/ModuleClassResponse.java",
+      "content": "package com.eduhub.edu_hub.scheduling.api.dto;\n\nimport com.eduhub.edu_hub.scheduling.domain.enums.ModuleClassStatus;\nimport java.util.List;\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class ModuleClassResponse {\n    private Long id;\n    private String moduleClassCode;\n    private String subjectCode;\n    private String subjectName;\n    private int credits;\n    private String lecturerName;\n    private String semesterCode;\n    private int maxCapacity;\n    private int currentSize;\n    private ModuleClassStatus status; // UNSCHEDULED, SCHEDULED, OPEN, CANCELLED\n    private List<ClassScheduleResponse> schedules;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/scheduling/api/dto/SemesterResponse.java",
+      "content": "package com.eduhub.edu_hub.scheduling.api.dto;\n\nimport java.time.LocalDate;\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class SemesterResponse {\n    private Long id;\n    private String semesterCode; // ví dụ: HK12425\n    private String semesterName; // ví dụ: Học kỳ 1 năm học 2024-2025\n    private LocalDate startDate;\n    private LocalDate endDate;\n    private LocalDate registrationStart;\n    private LocalDate registrationEnd;\n    private Boolean isLocked; // khóa thông tin kỳ + lớp học phần\n    private Boolean lockedGrade; // khóa điểm\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/scheduling/api/dto/TimetableResponse.java",
+      "content": "package com.eduhub.edu_hub.scheduling.api.dto;\n\nimport java.util.List;\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class TimetableResponse {\n    private String weekLabel;\n    private List<TimetableSlot> slots;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/scheduling/api/dto/TimetableSlot.java",
+      "content": "package com.eduhub.edu_hub.scheduling.api.dto;\n\nimport lombok.Builder;\nimport lombok.Data;\n\n@Data\n@Builder\npublic class TimetableSlot {\n    private int dayOfWeek;\n    private int lessonStart;\n    private int lessonEnd;\n    private String subjectName;\n    private String moduleClassCode;\n    private String roomCode;\n    private String lecturerName;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/scheduling/application/SchedulingFacade.java",
+      "content": "package com.eduhub.edu_hub.scheduling.application;\n\nimport com.eduhub.edu_hub.scheduling.api.dto.ModuleClassResponse;\nimport com.eduhub.edu_hub.scheduling.api.dto.SemesterResponse;\nimport com.eduhub.edu_hub.scheduling.api.dto.TimetableSlot;\nimport java.util.List;\nimport java.util.Optional;\n\npublic interface SchedulingFacade {\n\n    Optional<ModuleClassResponse> findModuleClassById(Long moduleClassId);\n\n    List<ModuleClassResponse> findModuleClassesBySemester(Long semesterId);\n\n    List<ModuleClassResponse> findModuleClassesByLecturerAndSemester(Long lecturerId, Long semesterId);\n\n    /** Kiểm tra còn chỗ không */\n    boolean hasAvailableSlot(Long moduleClassId);\n\n    /** Tăng / giảm sĩ số (gọi từ enrollment) */\n    void increaseCurrentSize(Long moduleClassId);\n\n    void decreaseCurrentSize(Long moduleClassId);\n\n    /** Lấy thời khóa biểu */\n    List<TimetableSlot> getStudentTimetable(Long studentId, Long semesterId);\n\n    List<TimetableSlot> getLecturerTimetable(Long lecturerId, Long semesterId);\n\n    Optional<SemesterResponse> findSemesterById(Long semesterId);\n\n    boolean isSemesterRegistrationOpen(Long semesterId);\n\n    boolean isGradeLocked(Long semesterId);\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/scheduling/domain/enums/ModuleClassStatus.java",
+      "content": "package com.eduhub.edu_hub.scheduling.domain.enums;\n\npublic enum ModuleClassStatus {\n    UNSCHEDULED, // Chưa xếp lịch\n    SCHEDULED, // Đã xếp lịch\n    OPEN, // Mở đăng ký\n    CANCELLED // Đã hủy\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/shared/common/ApiResponse.java",
+      "content": "package com.eduhub.edu_hub.shared.common;\n\nimport com.eduhub.edu_hub.shared.exception.ErrorCode;\nimport com.fasterxml.jackson.annotation.JsonInclude;\nimport java.time.LocalDateTime;\nimport java.util.List;\nimport lombok.Builder;\nimport lombok.Getter;\n\n@Getter\n@Builder\n@JsonInclude(JsonInclude.Include.NON_NULL)\npublic class ApiResponse<T> {\n    private boolean success;\n    private Integer code; // null khi success — chỉ có giá trị khi lỗi\n    private String message;\n    private T data; // null khi lỗi\n    private List<FieldErrorDetail> errors; // null khi success — lỗi validation\n    private String path; // null khi success — đường dẫn của request\n\n    @Builder.Default\n    private LocalDateTime timestamp = LocalDateTime.now();\n\n    public static <T> ApiResponse<T> success(T data) {\n        return ApiResponse.<T>builder()\n                .success(true)\n                .message(\"Success\")\n                .data(data)\n                .build();\n    }\n\n    public static <T> ApiResponse<T> successWithMessage(String message) {\n        return ApiResponse.<T>builder().success(true).message(message).build();\n    }\n\n    public static <T> ApiResponse<T> error(ErrorCode errorCode, String path) {\n        return ApiResponse.<T>builder()\n                .success(false)\n                .code(errorCode.getCode())\n                .message(errorCode.getMessage())\n                .path(path)\n                .build();\n    }\n\n    public static <T> ApiResponse<T> validationError(List<FieldErrorDetail> errors, String path) {\n        return ApiResponse.<T>builder()\n                .success(false)\n                .code(ErrorCode.VALIDATION_ERROR.getCode())\n                .message(ErrorCode.VALIDATION_ERROR.getMessage())\n                .errors(errors)\n                .path(path)\n                .build();\n    }\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/shared/common/FieldErrorDetail.java",
+      "content": "package com.eduhub.edu_hub.shared.common;\n\nimport lombok.AllArgsConstructor;\nimport lombok.Getter;\n\n@Getter\n@AllArgsConstructor\npublic class FieldErrorDetail {\n    private String field;\n    private String message;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/shared/common/PageResponse.java",
+      "content": "package com.eduhub.edu_hub.shared.common;\n\nimport java.util.List;\nimport lombok.*;\n\n@Getter\n@Setter\n@Builder\n@NoArgsConstructor\n@AllArgsConstructor\npublic class PageResponse<T> {\n\n    // data của trang hiện tại\n    private List<T> content;\n\n    // trang hiện tại\n    private int pageNumber;\n\n    // elements tối đa trên 1 trang\n    private int pageSize;\n\n    // elements có trong toàn bộ db\n    private long totalElements;\n\n    // tổng số trang\n    private int totalPages;\n\n    // marking đây có phải là trang cuối cùng hay không\n    private boolean isLast;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/shared/config/WebCorsConfig.java",
+      "content": "package com.eduhub.edu_hub.shared.config;\n\nimport org.jspecify.annotations.NonNull;\nimport org.springframework.context.annotation.Configuration;\nimport org.springframework.web.servlet.config.annotation.CorsRegistry;\nimport org.springframework.web.servlet.config.annotation.WebMvcConfigurer;\n\n@Configuration\npublic class WebCorsConfig implements WebMvcConfigurer {\n    @Override\n    public void addCorsMappings(@NonNull CorsRegistry registry) {\n        registry.addMapping(\"/**\") // 1. Áp dụng CORS cho tất cả các endpoints\n                .allowedOriginPatterns(\"*\") // 2. Chỉ định rõ các domain FE được phép gọi API\n                .allowedMethods(\"GET\", \"POST\", \"PUT\", \"DELETE\", \"PATCH\", \"OPTIONS\") // 3. Các HTTP Method được phép gọi\n                .allowedHeaders(\"*\") // 4. Cho phép tất cả các header trong request\n                .allowCredentials(true) // 5. Cho phép Frontend gửi thông tin xác thực\n                .maxAge(3600); // 6. Time lưu cache cho \"Preflight Request\"\n    }\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/shared/enums/ActivityStatus.java",
+      "content": "package com.eduhub.edu_hub.shared.enums;\n\npublic enum ActivityStatus {\n    STUDING,\n    DEACTIVATED,\n    DELETED\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/shared/enums/AiIntent.java",
+      "content": "package com.eduhub.edu_hub.shared.enums;\n\npublic enum AiIntent {\n    KNOWLEDGE,\n    GRADUATION,\n    OUT_OF_SCOPE\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/shared/enums/TrainingType.java",
+      "content": "package com.eduhub.edu_hub.shared.enums;\n\npublic enum TrainingType {\n    CHINH_QUY,\n    LIEN_THONG,\n    VAN_BANG_2\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/shared/exception/BaseException.java",
+      "content": "package com.eduhub.edu_hub.shared.exception;\n\nimport lombok.Getter;\n\n@Getter\npublic class BaseException extends RuntimeException {\n    private final ErrorCode errorCode;\n\n    public BaseException(ErrorCode errorCode) {\n        super(errorCode.getMessage());\n        this.errorCode = errorCode;\n    }\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/shared/exception/ErrorCode.java",
+      "content": "package com.eduhub.edu_hub.shared.exception;\n\nimport lombok.AllArgsConstructor;\nimport lombok.Getter;\nimport org.springframework.http.HttpStatus;\n\n@Getter\n@AllArgsConstructor\npublic enum ErrorCode {\n\n    // General\n    UNEXPECTED_ERROR(1000, \"Lỗi hệ thống\", HttpStatus.INTERNAL_SERVER_ERROR),\n    VALIDATION_ERROR(1001, \"Dữ liệu đầu vào không hợp lệ\", HttpStatus.BAD_REQUEST),\n    MISSING_PARAMETER(1002, \"Thiếu tham số bắt buộc\", HttpStatus.BAD_REQUEST),\n\n    // Identity\n    USER_NOT_FOUND(4002, \"Không tìm thấy người dùng\", HttpStatus.NOT_FOUND),\n    INVALID_CREDENTIALS(4003, \"Sai thông tin đăng nhập\", HttpStatus.UNAUTHORIZED),\n    ACCOUNT_LOCKED(4004, \"Tài khoản đã bị khóa\", HttpStatus.FORBIDDEN),\n    PASSWORD_POLICY_VIOLATION(4005, \"Mật khẩu không đạt chính sách bảo mật\", HttpStatus.BAD_REQUEST),\n    FIRST_LOGIN_REQUIRED(4006, \"Bắt buộc đổi mật khẩu lần đầu\", HttpStatus.FORBIDDEN),\n    ACCOUNT_EMAIL_MISSING(4007, \"Tài khoản chưa có email nhận thông báo\", HttpStatus.BAD_REQUEST),\n    PASSWORD_EMAIL_FAILED(4008, \"Không gửi được email mật khẩu tạm\", HttpStatus.BAD_GATEWAY),\n\n    // People\n    STUDENT_NOT_FOUND(4101, \"Không tìm thấy sinh viên\", HttpStatus.NOT_FOUND),\n    LECTURER_NOT_FOUND(4102, \"Không tìm thấy giảng viên\", HttpStatus.NOT_FOUND),\n    DUPLICATE_STUDENT_CODE(4103, \"MSSV đã tồn tại\", HttpStatus.CONFLICT),\n    DUPLICATE_LECTURER_CODE(4104, \"Mã giảng viên đã tồn tại\", HttpStatus.CONFLICT),\n    CLASS_CAPACITY_EXCEEDED(4105, \"Lớp đã đầy sức chứa\", HttpStatus.BAD_REQUEST),\n\n    // Curriculum\n    SUBJECT_NOT_FOUND(4201, \"Không tìm thấy học phần\", HttpStatus.NOT_FOUND),\n    CURRICULUM_NOT_FOUND(4202, \"Không tìm thấy chương trình đào tạo\", HttpStatus.NOT_FOUND),\n    PREREQUISITE_CYCLE(4203, \"Phát hiện chu trình tiên quyết\", HttpStatus.BAD_REQUEST),\n    SUBJECT_IN_USE(4204, \"Học phần đang được sử dụng\", HttpStatus.CONFLICT),\n    DUPLICATE_SUBJECT_CODE(4205, \"Mã học phần đã tồn tại\", HttpStatus.CONFLICT),\n    DUPLICATE_SUBJECT_NAME(4206, \"Tên học phần đã tồn tại\", HttpStatus.CONFLICT),\n    SUBJECT_NOT_ACTIVE(4207, \"Chỉ được cập nhật học phần đang sử dụng\", HttpStatus.CONFLICT),\n    SUBJECT_CODE_IMMUTABLE(4208, \"Không được thay đổi mã học phần\", HttpStatus.CONFLICT),\n    SUBJECT_ACTION_NOT_CONFIRMED(4209, \"Cần xác nhận thao tác trước khi thực hiện\", HttpStatus.BAD_REQUEST),\n    PREREQUISITE_SELF_REFERENCE(4210, \"Học phần không thể là tiên quyết của chính nó\", HttpStatus.BAD_REQUEST),\n    PREREQUISITE_NOT_ACTIVE(4211, \"Môn tiên quyết phải ở trạng thái đang sử dụng\", HttpStatus.BAD_REQUEST),\n\n    // Scheduling\n    MODULE_CLASS_NOT_FOUND(4301, \"Không tìm thấy lớp học phần\", HttpStatus.NOT_FOUND),\n    SEMESTER_LOCKED(4302, \"Kỳ học đã khóa\", HttpStatus.BAD_REQUEST),\n    ROOM_CONFLICT(4303, \"Xung đột phòng học\", HttpStatus.CONFLICT),\n    LECTURER_CONFLICT(4304, \"Giảng viên bị trùng lịch\", HttpStatus.CONFLICT),\n\n    // Enrollment\n    ENROLLMENT_NOT_FOUND(4401, \"Không tìm thấy đăng ký\", HttpStatus.NOT_FOUND),\n    REGISTRATION_CLOSED(4402, \"Đã hết thời gian đăng ký\", HttpStatus.BAD_REQUEST),\n    PREREQUISITE_NOT_MET(4403, \"Chưa đủ điều kiện tiên quyết\", HttpStatus.BAD_REQUEST),\n    CAPACITY_FULL(4404, \"Lớp học phần đã hết chỗ\", HttpStatus.CONFLICT),\n    ALREADY_ENROLLED(4405, \"Đã đăng ký lớp học phần này\", HttpStatus.CONFLICT),\n\n    // Academic\n    GRADE_LOCKED(4501, \"Điểm đã bị khóa\", HttpStatus.BAD_REQUEST),\n    INVALID_SCORE(4502, \"Điểm không hợp lệ\", HttpStatus.BAD_REQUEST),\n\n    // AI\n    KNOWLEDGE_SOURCE_NOT_FOUND(4601, \"Không tìm thấy nguồn tri thức\", HttpStatus.NOT_FOUND),\n    CHAT_SESSION_NOT_FOUND(4602, \"Không tìm thấy phiên hội thoại\", HttpStatus.NOT_FOUND),\n\n    // Security\n    UNAUTHENTICATED(4000, \"Vui lòng đăng nhập\", HttpStatus.UNAUTHORIZED),\n    UNAUTHORIZED(4001, \"Không có quyền truy cập\", HttpStatus.FORBIDDEN);\n\n    private final int code;\n    private final String message;\n    private final HttpStatus httpStatus;\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/shared/exception/GlobalExceptionHandler.java",
+      "content": "package com.eduhub.edu_hub.shared.exception;\n\nimport com.eduhub.edu_hub.curriculum.api.dto.SubjectSimpleResponse;\nimport com.eduhub.edu_hub.curriculum.application.exception.PrerequisiteCycleException;\nimport com.eduhub.edu_hub.curriculum.application.exception.SubjectHasDependentsException;\nimport com.eduhub.edu_hub.shared.common.ApiResponse;\nimport com.eduhub.edu_hub.shared.common.FieldErrorDetail;\nimport jakarta.servlet.http.HttpServletRequest;\nimport jakarta.validation.ConstraintViolationException;\nimport java.util.List;\nimport java.util.stream.Collectors;\nimport lombok.extern.slf4j.Slf4j;\nimport org.springframework.http.HttpStatus;\nimport org.springframework.http.ResponseEntity;\nimport org.springframework.http.converter.HttpMessageNotReadableException;\nimport org.springframework.web.bind.MethodArgumentNotValidException;\nimport org.springframework.web.bind.MissingServletRequestParameterException;\nimport org.springframework.web.bind.annotation.ExceptionHandler;\nimport org.springframework.web.bind.annotation.RestControllerAdvice;\n\n@RestControllerAdvice\n@Slf4j\npublic class GlobalExceptionHandler {\n\n    // Thiếu tham số cho URL\n    @ExceptionHandler(MissingServletRequestParameterException.class)\n    public ResponseEntity<ApiResponse<Void>> handlingMissingServletRequestParameterException(\n            MissingServletRequestParameterException exception, HttpServletRequest request) {\n\n        log.warn(\"Missing parameter at [{}]: {}\", request.getRequestURI(), exception.getMessage());\n\n        return ResponseEntity.status(ErrorCode.MISSING_PARAMETER.getHttpStatus())\n                .body(ApiResponse.error(ErrorCode.MISSING_PARAMETER, request.getRequestURI()));\n    }\n\n    // Validation exception\n    @ExceptionHandler(MethodArgumentNotValidException.class)\n    public ResponseEntity<ApiResponse<Void>> handlingMethodArgumentNotValidException(\n            MethodArgumentNotValidException exception, HttpServletRequest request) {\n\n        List<FieldErrorDetail> errors = exception.getBindingResult().getFieldErrors().stream()\n                .map(fe -> new FieldErrorDetail(fe.getField(), fe.getDefaultMessage()))\n                .toList();\n\n        log.warn(\"Validation failed at [{}]: {}\", request.getRequestURI(), errors);\n\n        return ResponseEntity.status(HttpStatus.BAD_REQUEST)\n                .body(ApiResponse.validationError(errors, request.getRequestURI()));\n    }\n\n    // Business exception\n    @ExceptionHandler(BaseException.class)\n    public ResponseEntity<ApiResponse<Void>> handlingBaseException(\n            BaseException exception, HttpServletRequest request) {\n\n        log.error(\n                \"Business Exception: code={}, message={}, path={}\",\n                exception.getErrorCode().getCode(),\n                exception.getMessage(),\n                request.getRequestURI());\n\n        return ResponseEntity.status(exception.getErrorCode().getHttpStatus())\n                .body(ApiResponse.error(exception.getErrorCode(), request.getRequestURI()));\n    }\n\n    @ExceptionHandler(HttpMessageNotReadableException.class)\n    public ResponseEntity<ApiResponse<Void>> handlingHttpMessageNotReadableException(\n            HttpMessageNotReadableException exception, HttpServletRequest request) {\n        log.warn(\"Invalid request body at [{}]\", request.getRequestURI());\n        return ResponseEntity.status(HttpStatus.BAD_REQUEST)\n                .body(ApiResponse.error(ErrorCode.VALIDATION_ERROR, request.getRequestURI()));\n    }\n\n    @ExceptionHandler(ConstraintViolationException.class)\n    public ResponseEntity<ApiResponse<Void>> handlingConstraintViolationException(\n            ConstraintViolationException exception, HttpServletRequest request) {\n        List<FieldErrorDetail> errors = exception.getConstraintViolations().stream()\n                .map(violation ->\n                        new FieldErrorDetail(violation.getPropertyPath().toString(), violation.getMessage()))\n                .toList();\n        return ResponseEntity.status(HttpStatus.BAD_REQUEST)\n                .body(ApiResponse.validationError(errors, request.getRequestURI()));\n    }\n\n    @ExceptionHandler(PrerequisiteCycleException.class)\n    public ResponseEntity<ApiResponse<Void>> handlePrerequisiteCycle(\n            PrerequisiteCycleException exception, HttpServletRequest request) {\n\n        String cycle = exception.getCycle().stream()\n                .map(SubjectSimpleResponse::getSubjectCode)\n                .collect(Collectors.joining(\" → \"));\n\n        return ResponseEntity.status(HttpStatus.BAD_REQUEST)\n                .body(ApiResponse.<Void>builder()\n                        .success(false)\n                        .code(ErrorCode.PREREQUISITE_CYCLE.getCode())\n                        .message(\"Phát hiện chu trình tiên quyết: \" + cycle)\n                        .path(request.getRequestURI())\n                        .build());\n    }\n\n    @ExceptionHandler(SubjectHasDependentsException.class)\n    public ResponseEntity<ApiResponse<Void>> handleSubjectHasDependents(\n            SubjectHasDependentsException exception, HttpServletRequest request) {\n\n        var errors = exception.getDependentSubjects().stream()\n                .map(subject ->\n                        new FieldErrorDetail(\"requiredBy\", subject.getSubjectCode() + \" - \" + subject.getSubjectName()))\n                .toList();\n        return ResponseEntity.status(HttpStatus.CONFLICT)\n                .body(ApiResponse.<Void>builder()\n                        .success(false)\n                        .code(ErrorCode.SUBJECT_IN_USE.getCode())\n                        .message(\"Học phần là tiên quyết của học phần đang sử dụng. Hãy gỡ ràng buộc tại UC-21 trước.\")\n                        .errors(errors)\n                        .path(request.getRequestURI())\n                        .build());\n    }\n\n    // Fallback\n    @ExceptionHandler(Exception.class)\n    public ResponseEntity<ApiResponse<Void>> handlingRuntimeException(Exception exception, HttpServletRequest request) {\n\n        log.error(\"Unexpected Exception at [{}]: \", request.getRequestURI(), exception);\n\n        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)\n                .body(ApiResponse.error(ErrorCode.UNEXPECTED_ERROR, request.getRequestURI()));\n    }\n}\n"
+    },
+    {
+      "path": "src/main/java/com/eduhub/edu_hub/shared/mapper/PageMapper.java",
+      "content": "package com.eduhub.edu_hub.shared.mapper;\n\nimport com.eduhub.edu_hub.shared.common.PageResponse;\nimport org.springframework.data.domain.Page;\n\npublic class PageMapper {\n    public static <T> PageResponse<T> toPageResponse(Page<T> page) {\n        return PageResponse.<T>builder()\n                .content(page.getContent())\n                .pageNumber(page.getNumber())\n                .pageSize(page.getSize())\n                .totalElements(page.getTotalElements())\n                .totalPages(page.getTotalPages())\n                .isLast(page.isLast())\n                .build();\n    }\n}\n"
+    }
+  ]
+}
