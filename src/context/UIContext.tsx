@@ -1,3 +1,4 @@
+import { useAuth } from "./AuthContext";
 import {
   createContext,
   useContext,
@@ -14,9 +15,14 @@ import {
 import type { Dialog } from "../types/ui";
 
 function useUIState() {
+  const { session } = useAuth();
   const [scheduleTarget, setScheduleTarget] = useState<number | null>(null);
   const [dialog, setDialogState] = useState<Dialog | null>(null);
   const [toast, setToast] = useState<Notification | null>(null);
+  useEffect(() => {
+    setDialogState(null);
+    setScheduleTarget(null);
+  }, [session]);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );

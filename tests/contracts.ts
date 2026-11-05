@@ -1,3 +1,4 @@
+import {accountRole} from "../src/config/navigation";
 import assert from "node:assert/strict";
 import {
   createStudent,
@@ -104,6 +105,10 @@ await assert.rejects(
     e.code === 1001 &&
     e.errors[0].field === "fullName",
 );
+globalThis.fetch = async () => Response.json(null, {status: 401});
+await assert.rejects(apiRequest("/confirmed-path"), (e: unknown) => e instanceof ApiError && e.status === 401);
+globalThis.fetch = async () => Response.json({success: false, message: "Validation", errors: [null, {field:"email", message:"Sai email"}]}, {status:400});
+await assert.rejects(apiRequest("/confirmed-path"), (e: unknown) => e instanceof ApiError && e.errors.length === 1 && e.errors[0].field === "email");
 globalThis.fetch = async () => new Response(null, { status: 204 });
 assert.equal(await apiRequest("/confirmed-path"), undefined);
 globalThis.fetch = async () => new Response("Not JSON", { status: 502 });
@@ -359,20 +364,19 @@ const firstLogin = await authenticateAccount(
   newUsers,
   "CT202600001",
   "12345",
-  "STUDENT",
 );
 assert.equal(firstLogin.requirePasswordChange, true);
 assert.equal(firstLogin.user.username, "CT202600001");
-await assert.rejects(
-  authenticateAccount(newUsers, "CT202600001", "12345", "LECTURER"),
-  /vai trò/,
-);
+for (const [wire, expected] of [["STUDENT","student"], ["LECTURER","lecturer"], ["ACADEMIC_ADMIN","academic-admin"], ["SYSTEM_ADMIN","system-admin"]]) {
+  const authenticated = await authenticateAccount(newUsers.map(user => ({...user,role:wire})), "CT202600001","12345");
+  assert.equal(accountRole(authenticated.user.role),expected);
+}
+assert.throws(()=>accountRole("UNKNOWN"),/vai trò/i);
 await assert.rejects(
   authenticateAccount(
     newUsers.map((u) => ({ ...u, status: "LOCKED" })),
     "CT202600001",
     "12345",
-    "STUDENT",
   ),
   /khóa/,
 );
@@ -384,7 +388,7 @@ await assert.rejects(
 );
 await storePassword("CT202600001", "ChangedPassword1!");
 await assert.rejects(
-  authenticateAccount(newUsers, "CT202600001", "12345", "STUDENT"),
+  authenticateAccount(newUsers, "CT202600001", "12345"),
   /không đúng/,
 );
 assert.equal(
@@ -393,7 +397,6 @@ assert.equal(
       newUsers.map((u) => ({ ...u, firstLogin: false })),
       "CT202600001",
       "ChangedPassword1!",
-      "STUDENT",
     )
   ).requirePasswordChange,
   false,
@@ -1002,3 +1005,45 @@ assert.equal(expired, 1);
 console.log(
   "PASS: account isolation, score visibility, legacy status migration, invalid-account quarantine, HTTP paths/bodies/query/401",
 );
+
+import { readFileSync } from "node:fs";
+import { ENDPOINTS } from "../src/services/api/backendContract";
+import { legacyRoomCodes, roomInput, validateRoom, searchRooms } from "../src/services/academic/rooms";
+const roomDocs = readFileSync("docs/FE_API_INTEGRATION.md","utf8");
+const documented = Array.from(roomDocs.matchAll(/\|\s*(GET|POST|PUT|PATCH|DELETE)\s*\|\s*`(\/api\/v1\/[^`]+)`/g), m=>m[1]+" "+m[2].replace(/\{[^}]+\}/g,"7"));
+const implemented = Object.values(ENDPOINTS).map(e=>e.method+" "+(typeof e.url==="string"?e.url:(e.url as (id:number)=>string)(7)));
+assert.equal(documented.length,44);
+assert.deepEqual(implemented.sort(),documented.sort());
+const roomForm=new FormData();
+for(const [key,value] of Object.entries({roomCode:" 102-ta1 ",roomName:" Phòng 102 ",campus:"cs1",buildingCode:"ta1",capacity:"100"})) roomForm.set(key,value);
+const payload=roomInput(roomForm);
+assert.equal(payload.roomCode,"102-TA1");
+assert.equal(payload.campus,"CS1");
+assert(!("roomType" in payload || "roomNumber" in payload));
+assert.deepEqual(validateRoom(payload,{}),{});
+const invalidRoom=validateRoom({...payload,buildingCode:"B",roomNumber:"2",capacity:1.5},{});
+assert.deepEqual(Object.keys(invalidRoom).sort(),["buildingCode","capacity","roomNumber"]);
+const oldRoom={id:7,roomCode:"A201",buildingCode:"A",roomNumber:"201",roomName:"Phòng 201",roomType:"LECTURE",campus:"CS1",capacity:105,status:"ACTIVE" as const};
+assert.equal(legacyRoomCodes([oldRoom]).get("A201"),"201-A");
+assert.equal(legacyRoomCodes([oldRoom,{...oldRoom,id:8,roomCode:"201-A"}]).size,0);
+assert.deepEqual(searchRooms([oldRoom,{...oldRoom,id:8,deleted:true}],{keyword:"201",campus:"cs1",buildingCode:"a",minCapacity:105,status:"ACTIVE"}).map(r=>r.id),[7]);
+console.log("PASS: all 44 documented method/path pairs, room payload, validation, filters and legacy room references");
+
+import { reconcileScheduledRooms } from "../src/services/academic/rooms";
+import { roomCatalog } from "../src/data/mock/catalogs";
+import { moduleClassResponses as scheduledFixtures } from "../src/data/mock/dtoFixtures";
+const oldRooms = roomCatalog.map(r=>({...oldRoom,...r}));
+const recovered = reconcileScheduledRooms(oldRooms,scheduledFixtures)!;
+for(const c of recovered.classes) for(const slot of c.schedules)
+  assert(recovered.rooms.some(r=>r.roomCode===slot.roomCode),slot.roomCode);
+assert.equal(new Set(recovered.rooms.map(r=>r.id)).size,recovered.rooms.length);
+assert.equal(reconcileScheduledRooms(recovered.rooms,recovered.classes),undefined);
+assert.equal(recovered.rooms.find(r=>r.roomCode==="201-A")?.id,101);
+console.log("PASS: every scheduled demo room is represented, IDs preserved, repeated migration is a no-op");
+
+import { roomFitsClass } from "../src/services/academic/classPlanning";
+assert.equal(roomFitsClass(oldRoom, oldRoom.capacity), true);
+assert.equal(roomFitsClass(oldRoom, oldRoom.capacity+1), false);
+assert.equal(roomFitsClass(oldRoom, 10, "LAB"), false);
+assert.equal(roomFitsClass({...oldRoom, deleted:true}, 10), false);
+assert.equal(roomFitsClass({...oldRoom, status:"INACTIVE"}, 10), false);

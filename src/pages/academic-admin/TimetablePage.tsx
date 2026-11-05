@@ -14,7 +14,7 @@ const displayDate = (day: string) => day.split("-").reverse().join("/");
 export default function TimetablePage({ onNavigate }: Partial<PageProps> = {}) {
   const a = useAcademic(),
     m = useManagement(),
-    { notify, notifyError, setScheduleTarget } = useUI();
+    { setScheduleTarget } = useUI();
   const [termId, setTermId] = useState(m.semester.id),
     [teacher, setTeacher] = useState(""),
     [room, setRoom] = useState(""),
@@ -42,37 +42,32 @@ export default function TimetablePage({ onNavigate }: Partial<PageProps> = {}) {
       : [];
   const unscheduled = classes.filter((c) => !c.schedules.length);
   function download() {
-    try {
-      exportCsv(`thoi-khoa-bieu-${term.semesterCode}-${week}.csv`, [
-        [
-          "Ngày",
-          "Thứ",
-          "Tiết đầu",
-          "Tiết cuối",
-          "Mã lớp",
-          "Học phần",
-          "Giảng viên",
-          "Phòng",
-          "Sĩ số",
-          "Sức chứa",
-        ],
-        ...rows.map(({ c, s, date }) => [
-          date,
-          s.dayOfWeek!,
-          s.lessonOrderStart!,
-          s.lessonOrderEnd!,
-          c.moduleClassCode,
-          c.subjectName,
-          c.lecturerName || "Chưa phân công",
-          s.roomCode,
-          c.currentSize,
-          c.maxCapacity,
-        ]),
-      ]);
-      notify("Đã xuất thời khóa biểu của tuần đang xem.");
-    } catch {
-      notifyError("Không thể xuất thời khóa biểu. Vui lòng thử lại.");
-    }
+    exportCsv(`thoi-khoa-bieu-${term.semesterCode}-${week}.csv`, [
+      [
+        "Ngày",
+        "Thứ",
+        "Tiết đầu",
+        "Tiết cuối",
+        "Mã lớp",
+        "Học phần",
+        "Giảng viên",
+        "Phòng",
+        "Sĩ số",
+        "Sức chứa",
+      ],
+      ...rows.map(({ c, s, date }) => [
+        date,
+        s.dayOfWeek!,
+        s.lessonOrderStart!,
+        s.lessonOrderEnd!,
+        c.moduleClassCode,
+        c.subjectName,
+        c.lecturerName || "Chưa phân công",
+        s.roomCode,
+        c.currentSize,
+        c.maxCapacity,
+      ]),
+    ]);
   }
   return (
     <>

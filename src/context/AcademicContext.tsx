@@ -1,3 +1,4 @@
+import { reconcileScheduledRooms } from "../services/academic/rooms";
 import {
   semesterFormName,
   nextSemesterIdentity,
@@ -33,6 +34,7 @@ import type {
   SemesterResponse,
 } from "../types/dto";
 export type RoomRecord = {
+  campus?: string;
   id: number;
   roomCode: string;
   roomName: string;
@@ -81,6 +83,12 @@ function useModel() {
       status: "ACTIVE",
     })),
   );
+  useEffect(() => {
+    const migrated = reconcileScheduledRooms(rooms, storedData.classes);
+    if (!migrated) return;
+    setRooms(migrated.rooms);
+    setStoredData(old => ({...old, classes: migrated.classes}));
+  }, [rooms, storedData.classes, setRooms, setStoredData]);
   const [terms, setTerms] = usePersistentState<SemesterResponse[]>(
     "kma-academic-terms-v1",
     [m.semester],

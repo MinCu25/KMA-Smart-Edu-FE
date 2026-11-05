@@ -1,3 +1,4 @@
+import { LiveRoomsPage } from "../academic-admin/RoomsPage";
 import { useEffect, useState } from "react";
 import { catalog } from "../live/catalog";
 import { ListPage } from "../live/ListPage";
@@ -65,6 +66,7 @@ export function LiveAccountPage({
   onNavigate,
 }: { page: Page } & PageProps) {
   if (page === "profile") return <StudentProfile />;
+  if (page === "rooms") return <LiveRoomsPage />;
   if (page === "accounts") return <LiveAccounts />;
   if (page === "admissions") return <Admission />;
   if (page in catalog) return <ListPage key={page} page={page} />;

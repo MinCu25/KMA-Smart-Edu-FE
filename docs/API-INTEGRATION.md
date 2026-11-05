@@ -1,7 +1,3 @@
 # Bàn giao API
 
-Tài liệu hiện hành: [API-READINESS.md](API-READINESS.md).
-
-Snapshot dùng để kiểm tra: `develop-contract.json`, commit `8253c0e2965b53bab1a3ab47e068a472a2e99255`. Client: `src/services/api/eduApi.ts`.
-
-Các ghi chú cũ về việc backend chưa có controller hoặc toàn bộ UI chỉ cần đổi base URL không còn đúng. UI hiện vẫn chạy local; xem rõ phần đã sửa và phần còn phụ thuộc BE trong tài liệu hiện hành.
+Hợp đồng ngày 05/11/2026 gồm 44 endpoint. Xem [hướng dẫn BE](FE_API_INTEGRATION.md) và [kiểu dữ liệu, URL](fe-api-contract.ts). Các ghi chú trong API-READINESS.md và snapshot develop-contract.json thuộc đợt đối chiếu 03/11. Hướng dẫn bật chế độ API nằm ở đầu README.

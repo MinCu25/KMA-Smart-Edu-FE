@@ -4,6 +4,7 @@ import {
   MAX_CLASS_CAPACITY,
   publicationProblems,
   scheduleProblems,
+  roomFitsClass,
 } from "../../services/academic/classPlanning";
 import { useDemoData } from "../../context/DemoDataContext";
 import { demoRosters } from "../../data/mock/management";
@@ -441,11 +442,23 @@ function ScheduleEditor({
     for (const student of students)
       (allRegistrations[student] ??= []).push(code);
   Object.assign(allRegistrations, registrations);
-  const current = a.data.classes.find((c) => c.id === cls.id)!;
+  const current = a.data.classes.find((c) => c.id === cls.id);
   const [editing, setEditing] = useState<ClassScheduleResponse | undefined>(),
     [revision, setRevision] = useState(0),
     [preview, setPreview] = useState<FormData | null>(null);
-  const term = a.termFor(current)!;
+  const term = current && a.termFor(current);
+  if (!current || !term)
+    return (
+      <p role="alert">
+        Lớp hoặc kỳ học không còn trong danh sách.{" "}
+        <button className="btn" onClick={close}>
+          Đóng
+        </button>
+      </p>
+    );
+  const eligibleRooms = a.rooms.filter((room) =>
+    roomFitsClass(room, current.maxCapacity, a.classMeta[current.id]?.roomType),
+  );
   const weeks = termWeeks(term);
   const fields: Field[] = [
     {
@@ -453,19 +466,10 @@ function ScheduleEditor({
       label: "Phòng học",
       required: true,
       value: a.rooms.find((r) => r.roomCode === editing?.roomCode)?.id,
-      options: a.rooms
-        .filter(
-          (r) =>
-            !r.deleted &&
-            r.status === "ACTIVE" &&
-            r.capacity >= current.maxCapacity &&
-            (!a.classMeta[current.id] ||
-              r.roomType === a.classMeta[current.id].roomType),
-        )
-        .map((r) => ({
-          value: r.id,
-          label: `${r.roomCode} · ${r.capacity} chỗ`,
-        })),
+      options: eligibleRooms.map((r) => ({
+        value: r.id,
+        label: `${r.roomCode} · ${r.capacity} chỗ`,
+      })),
     },
     {
       key: "dayOfWeek",
@@ -517,7 +521,7 @@ function ScheduleEditor({
     },
     { key: "reason", label: "Lý do xếp hoặc thay đổi lịch", required: true },
   ];
-  function schedule(f: FormData): ClassScheduleResponse {
+  const schedule = (f: FormData): ClassScheduleResponse => {
     const r = a.rooms.find((r) => r.id === +str(f, "roomId"))!;
     return {
       id: editing?.id ?? Date.now(),
@@ -535,7 +539,7 @@ function ScheduleEditor({
         ? [addDays(weeks[+str(f, "endWeek") - 1], 6), term.endDate!].sort()[0]
         : "",
     };
-  }
+  };
   return (
     <>
       <p>
@@ -640,6 +644,15 @@ function ScheduleEditor({
         validate={(f, e) => {
           if (!a.editable(current))
             e._form = ["Kỳ học đã khóa/kết thúc hoặc lớp đã hủy."];
+          if (
+            editing &&
+            !current.schedules.some((slot) => slot.id === editing.id)
+          ) {
+            e._form = [
+              "Buổi học đã bị xóa. Hãy chuyển sang thêm buổi học hoặc chọn lại lịch.",
+            ];
+            return e;
+          }
           const problems = scheduleProblems(schedule(f), term);
           for (const [key, messages] of Object.entries(problems))
             e[
@@ -658,13 +671,8 @@ function ScheduleEditor({
             a.classMeta,
           );
           if (clashes.length) {
-            const alternative = a.rooms.filter(
+            const alternative = eligibleRooms.filter(
               (r) =>
-                r.status === "ACTIVE" &&
-                !r.deleted &&
-                r.capacity >= current.maxCapacity &&
-                (!a.classMeta[current.id] ||
-                  r.roomType === a.classMeta[current.id].roomType) &&
                 !conflicts(
                   a.data.classes,
                   current,
@@ -754,13 +762,9 @@ function ScheduleEditor({
           str(preview, "lessonOrderEnd") && (
             <p className="room-suggestions" role="status">
               <b>Phòng trống phù hợp: </b>
-              {a.rooms
+              {eligibleRooms
                 .filter(
                   (r) =>
-                    !r.deleted &&
-                    r.status === "ACTIVE" &&
-                    r.capacity >= current.maxCapacity &&
-                    r.roomType === a.classMeta[current.id]?.roomType &&
                     !conflicts(
                       a.data.classes,
                       current,

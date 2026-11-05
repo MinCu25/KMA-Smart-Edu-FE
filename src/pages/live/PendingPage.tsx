@@ -61,20 +61,6 @@ const pages: Record<
     columns: ["MSSV", "Họ và tên", "TP1", "TP2", "Ghi chú"],
     button: "Xuất CSV (điểm đã lưu)",
   },
-  rooms: {
-    title: "Quản lý phòng học",
-    section: "Danh sách phòng học",
-    filters: ["Tòa nhà", "Loại phòng", "Trạng thái"],
-    columns: [
-      "Mã phòng",
-      "Tên phòng",
-      "Tòa nhà",
-      "Loại phòng",
-      "Sức chứa",
-      "Trạng thái",
-    ],
-    button: "Thêm phòng học",
-  },
   "academic-timetable": {
     title: "Thời khóa biểu",
     section: "Lịch theo tuần",

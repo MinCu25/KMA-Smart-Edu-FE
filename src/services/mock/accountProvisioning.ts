@@ -49,14 +49,12 @@ export async function authenticateAccount(
   users: UserInfoResponse[],
   username: string,
   password: string,
-  role: string,
 ): Promise<LoginResponse> {
   const user = users.find((u) => u.username === username);
   if (!user || !(await verifyPassword(username, password)))
     throw Error("Tài khoản hoặc mật khẩu không đúng.");
   if (user.status !== "ACTIVE")
     throw Error("Tài khoản đã bị khóa hoặc ngừng hoạt động.");
-  if (user.role !== role) throw Error("Tài khoản không thuộc vai trò đã chọn.");
   return {
     accessToken: "local-session",
     refreshToken: "local-session",

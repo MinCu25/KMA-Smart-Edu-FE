@@ -1,18 +1,17 @@
 import { useAcademic } from "../context/AcademicContext";
-import { useAuth } from "../context/AuthContext";
 import { schedulesOverlap } from "../utils/classSchedules";
 import { useState } from "react";
-import { initialCourses } from "../data/mock/courses";
+
 import { useManagement } from "../context/ManagementContext";
-import { registerModule } from "../services/mock/dtoService";
 import { useDemoData } from "../context/DemoDataContext";
 import { useUI } from "../context/UIContext";
+import type { AlertMessage } from "../types/ui";
 import type { Course } from "../types/course";
 export function useEnrollment() {
-  const { ids, saveIds, selected, credits, alert, setAlert } = useDemoData();
+  const { ids, saveIds, selected, credits } = useDemoData();
+  const [alert, setAlert] = useState<AlertMessage | null>(null);
   const { term } = useManagement();
-  const academic = useAcademic(),
-    auth = useAuth();
+  const academic = useAcademic();
   const { setDialog, notify, notifyError } = useUI();
   const [inspectedId, setInspectedId] = useState<string | null>(null);
   function occupancy(c: Course) {
@@ -27,15 +26,25 @@ export function useEnrollment() {
         ),
     );
   }
+  function registeredAlternative(c: Course) {
+    return selected.find(other => other.id !== c.id && other.dto.subjectCode === c.dto.subjectCode && other.dto.semesterCode === c.dto.semesterCode);
+  }
   function condition(c: Course) {
     if (ids.includes(c.id)) return "registered";
-    if (c.missing) return "missing";
+    if (!term.registration) return "closed";
+    if (registeredAlternative(c)) return "duplicate";
     if (conflict(c)) return "conflict";
     if (occupancy(c) >= c.capacity) return "full";
+    if (credits + c.credits > 24) return "creditLimit";
+    if (c.missing) return "missing";
     return "available";
   }
   function conditionDetails(c: Course) {
     const reasons: string[] = [];
+    if (!term.registration) reasons.push("Đợt đăng ký đã đóng hoặc chưa mở.");
+    if (credits + c.credits > 24) reasons.push(`Đang có ${credits} TC, lớp ${c.id} thêm ${c.credits} TC, tổng ${credits + c.credits} TC vượt tối đa 24 TC/kỳ.`);
+    const other = registeredAlternative(c);
+    if (other) reasons.push("Bạn đã đăng ký lớp " + other.id + " của học phần " + c.name + ". Hãy hủy lớp đó nếu muốn chuyển sang lớp " + c.id + ".");
     const clash = conflict(c);
     if (c.missing) reasons.push(`Thiếu tiên quyết: ${c.missing}.`);
     if (clash)
@@ -54,14 +63,18 @@ export function useEnrollment() {
       reasons.push(`Lớp đã đủ ${occupancy(c)}/${c.capacity} chỗ.`);
     return reasons.join(" ");
   }
-  function fail(message: string, creditError = false) {
-    if (creditError) setAlert({ tone: "red", text: message });
-    else notifyError(message);
+  function fail(message: string) {
+    notifyError(message);
   }
   function showReason(c: Course) {
     setInspectedId(c.id);
     const state = condition(c);
     const reasons = conditionDetails(c);
+    if (state === "creditLimit") {
+      setAlert({ tone: "red", text: reasons });
+      return;
+    }
+    setAlert(null);
     notify(
       `Lớp ${c.id}: ${reasons || "Đợt đăng ký đã đóng hoặc chưa mở."}`,
       state === "missing"
@@ -77,30 +90,14 @@ export function useEnrollment() {
     if (!term.registration)
       return fail("Không thể đăng ký: đợt đăng ký đã đóng hoặc chưa mở.");
     if (c.dto.status !== "OPEN") return fail("Lớp chưa được công bố đăng ký.");
-    if (
-      selected.some(
-        (s) => s.dto.subjectCode === c.dto.subjectCode && s.id !== c.id,
-      )
-    )
-      return fail("Bạn đã đăng ký lớp khác của học phần này.");
     if (ids.includes(c.id)) {
       notify(`Bạn đã đăng ký lớp ${c.id}.`, "info");
       return;
     }
-    const reasons = conditionDetails(c);
-    if (reasons) {
-      notify(
-        `Lớp ${c.id}: ${reasons}`,
-        condition(c) === "missing" ? "warning" : "error",
-        "",
-      );
+    if (condition(c) !== "available") {
+      showReason(c);
       return;
     }
-    if (credits + c.credits > 24)
-      return fail(
-        `Vượt giới hạn tín chỉ: đang có ${credits} TC, lớp ${c.id} thêm ${c.credits} TC, tổng ${credits + c.credits} TC vượt tối đa 24 TC/kỳ.`,
-        true,
-      );
     setAlert(null);
     setDialog({
       title: "Xác nhận đăng ký học phần",

@@ -1,8 +1,8 @@
 # KMA Smart Edu · Chạy frontend với API của nhóm
 
-Chạy backend theo mục 12 của `docs/FE_API_INTEGRATION.md`. Sao chép `.env.example` thành `.env.local` ở thư mục chứa package.json, sửa VITE_API_BASE_URL nếu backend dùng địa chỉ khác, rồi chạy `npm ci` và `npm run dev`. Dùng tài khoản do backend cấp và chọn đúng vai trò.
+Chạy backend theo mục 12 của `docs/FE_API_INTEGRATION.md`. Sao chép `.env.example` thành `.env.local` ở thư mục chứa package.json, sửa VITE_API_BASE_URL nếu backend dùng địa chỉ khác, rồi chạy `npm ci` và `npm run dev`. Đăng nhập bằng tài khoản do backend cấp.
 
-Chế độ API nối các thao tác có trong 38 endpoint của tài liệu BE. Chọn Admin hệ thống để quản lý tài khoản. Chọn Admin học vụ để quản lý sinh viên, nhập học Excel, giảng viên, học phần, kỳ và lớp học phần. Thao tác tài khoản nằm ngay trên từng hàng. Trong các bảng học vụ, dùng nút Xem hoặc bấm tên học phần, tên giảng viên hay mã lớp để mở chi tiết. Các form chỉnh sửa mở trên danh sách. Trang nhập học cung cấp tệp cấu trúc .xlsx theo hợp đồng của BE. Sinh viên mở hồ sơ cá nhân để sửa số điện thoại và GPA. Với các danh mục ngành, khóa, lớp hành chính, khoa chưa có API tra cứu, dùng ID thật do BE cung cấp. Các trang chưa có controller hiển thị trạng thái chờ BE. Gợi ý mở lớp và hủy lớp có thể trả lỗi phụ thuộc Enrollment (xem mục 10). Token được giữ trong bộ nhớ, tải lại trang sẽ cần đăng nhập lại. Để chạy giao diện với dữ liệu trình duyệt, đặt VITE_AUTH_MODE=demo và khởi động lại Vite.
+Chế độ API nối các thao tác có trong 44 endpoint của tài liệu BE. Chọn Admin hệ thống để quản lý tài khoản. Chọn Admin học vụ để quản lý sinh viên, nhập học Excel, giảng viên, học phần, kỳ, lớp học phần và phòng học. Thao tác tài khoản nằm ngay trên từng hàng. Trong các bảng học vụ, dùng nút Xem hoặc bấm tên học phần, tên giảng viên hay mã lớp để mở chi tiết. Các form chỉnh sửa mở trên danh sách. Trang nhập học cung cấp tệp cấu trúc .xlsx theo hợp đồng của BE. Sinh viên mở hồ sơ cá nhân để sửa số điện thoại và GPA. Với các danh mục ngành, khóa, lớp hành chính, khoa chưa có API tra cứu, dùng ID thật do BE cung cấp. Các trang chưa có controller hiển thị trạng thái chờ BE. Gợi ý mở lớp và hủy lớp có thể trả lỗi phụ thuộc Enrollment (xem phần Lớp học phần). Token được giữ trong bộ nhớ, tải lại trang sẽ cần đăng nhập lại. Để chạy giao diện với dữ liệu trình duyệt, đặt VITE_AUTH_MODE=demo và khởi động lại Vite.
 
 ## Tài liệu của bản giao diện trước khi ghép API
 
@@ -21,7 +21,7 @@ npm ci
 npm run dev
 ```
 
-Mở địa chỉ Vite in trong terminal. Chọn vai trò ở trang đăng nhập; sau đăng nhập sẽ vào giao diện tương ứng.
+Mở địa chỉ Vite in trong terminal. Sau khi đăng nhập, hệ thống tự mở giao diện theo vai trò của tài khoản.
 
 | Vai trò | Tài khoản | Mật khẩu |
 | --- | --- | --- |

@@ -38,6 +38,7 @@ export function useLiveRequest() {
             "adminUserUnlock",
             "adminUserResetPassword",
             "subjectDelete",
+            "roomDelete",
           ].includes(op)
         )
           throw Error("Backend chưa trả dữ liệu.");

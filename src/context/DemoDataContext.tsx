@@ -9,12 +9,11 @@ import { useAuth } from "./AuthContext";
 import { useManagement } from "./ManagementContext";
 import { courseView } from "../services/adapters";
 import { readStorage } from "../services/mock/storage";
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import { usePersistentState } from "../hooks/usePersistentState";
 import { allCourses, initialCourses } from "../data/mock/courses";
 import { students } from "../data/mock/students";
 import type { Student } from "../types/student";
-import type { AlertMessage } from "../types/ui";
 
 function useDemoDataState() {
   const a = useAcademic(),
@@ -51,7 +50,6 @@ function useDemoDataState() {
   function setTarget(value: string) {
     updateStudents((old) => setStudentTarget(old, username, value));
   }
-  const [alert, setAlert] = useState<AlertMessage | null>(null);
   const selected = courses.filter(
     (course) =>
       ids.includes(course.id) &&
@@ -69,8 +67,6 @@ function useDemoDataState() {
     updateStudents,
     selected,
     credits,
-    alert,
-    setAlert,
   };
 }
 

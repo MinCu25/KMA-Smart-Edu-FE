@@ -47,12 +47,16 @@ export async function apiRequest<T>(
   } catch {
     throw new ApiError("Backend không trả về JSON hợp lệ.", response.status);
   }
+  if (!body || typeof body !== "object" || Array.isArray(body))
+    throw new ApiError("Backend trả dữ liệu không đúng định dạng.", response.status);
   if (!response.ok || body.success === false)
     throw new ApiError(
-      body.message || `Lỗi HTTP ${response.status}`,
+      typeof body.message === "string" && body.message ? body.message : `Lỗi HTTP ${response.status}`,
       response.status,
       body.code ?? undefined,
-      body.errors ?? [],
+      Array.isArray(body.errors)
+        ? body.errors.filter(item => item && typeof item.field === "string" && typeof item.message === "string")
+        : [],
     );
   if (body.success !== true)
     throw new ApiError(

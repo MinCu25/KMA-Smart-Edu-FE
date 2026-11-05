@@ -1,1285 +1,1137 @@
-# EduHub — URL, DTO và luồng tích hợp Frontend / Backend
+# EduHub — tài liệu bàn giao API cho Frontend
 
-Đối chiếu source ngày **04/11/2026**, từ `EduHubApplication` → cấu hình/filter → toàn bộ controller → service → repository/facade → DTO/exception handler. Phạm vi: **38 endpoint nghiệp vụ trong 8 controller**; không tính endpoint hạ tầng do Spring/Actuator cung cấp.
+**Đối chiếu source ngày 05/11/2026. Phạm vi: toàn bộ 44 endpoint nghiệp vụ trong 9 REST controller hiện có.**
 
-**Tài liệu này mô tả code hiện có, bao gồm các giới hạn hiện tại.** `API_SPECIFICATION.md` có cả API dự kiến và một số mô tả cũ; khi tích hợp phiên bản này, dùng bảng endpoint bên dưới. Một DTO hoặc facade tồn tại trong Java **không có nghĩa FE có URL để gọi**.
+Tài liệu này mô tả hành vi đang được code trong controller → service → repository/facade → database, bao gồm validation, DTO, response, quyền thực tế và phần chưa hoàn thiện. Nguồn chính là `src/main/java`; [API_SPECIFICATION.md](API_SPECIFICATION.md) có cả thiết kế dự kiến và một số mô tả cũ, không nên dùng riêng file đó làm danh sách API đang chạy.
 
-File dùng trực tiếp cho FE: **[FE_API_CONTRACT.ts](FE_API_CONTRACT.ts)** — DTO TypeScript, enum, HTTP method và URL của cả 38 endpoint. Bản DTO đầy đủ cũng được chèn ở cuối tài liệu này.
+**File để FE copy:** [fe-api-contract.ts](fe-api-contract.ts) chứa đầy đủ kiểu request/query/response của các API dưới đây, các enum và `API_URLS`. File không phụ thuộc thư viện HTTP hay framework FE. Các DTO chỉ có trong facade hoặc tính năng chưa có REST không được đưa vào như hợp đồng gọi API.
 
 ## Mục lục
 
 1. [Những điểm phải đọc trước](#1-những-điểm-phải-đọc-trước)
-2. [Quy ước HTTP, JSON và quyền](#2-quy-ước-http-json-và-quyền)
-3. [Danh sách đầy đủ 38 endpoint](#3-danh-sách-đầy-đủ-38-endpoint)
-4. [Đăng nhập, mật khẩu và quản trị tài khoản](#4-đăng-nhập-mật-khẩu-và-quản-trị-tài-khoản)
-5. [Sinh viên và hồ sơ cá nhân](#5-sinh-viên-và-hồ-sơ-cá-nhân)
-6. [Nhập học bằng Excel](#6-nhập-học-bằng-excel)
-7. [Giảng viên](#7-giảng-viên)
-8. [Học phần và môn tiên quyết](#8-học-phần-và-môn-tiên-quyết)
-9. [Kỳ học](#9-kỳ-học)
-10. [Lớp học phần](#10-lớp-học-phần)
-11. [Mã lỗi và cách FE xử lý](#11-mã-lỗi-và-cách-fe-xử-lý)
-12. [API còn thiếu, chuẩn bị dữ liệu và kiểm chứng](#12-api-còn-thiếu-chuẩn-bị-dữ-liệu-và-kiểm-chứng)
-13. [DTO và URL TypeScript đầy đủ](#13-dto-và-url-typescript-đầy-đủ)
+2. [Quy ước gọi API và response](#2-quy-ước-gọi-api-và-response)
+3. [Đăng nhập và tài khoản](#3-đăng-nhập-và-tài-khoản)
+4. [Sinh viên và hồ sơ cá nhân](#4-sinh-viên-và-hồ-sơ-cá-nhân)
+5. [Import nhập học Excel](#5-import-nhập-học-excel)
+6. [Giảng viên](#6-giảng-viên)
+7. [Học phần và tiên quyết](#7-học-phần-và-tiên-quyết)
+8. [Kỳ học](#8-kỳ-học)
+9. [Lớp học phần](#9-lớp-học-phần)
+10. [Phòng học](#10-phòng-học)
+11. [Mã lỗi cần xử lý](#11-mã-lỗi-cần-xử-lý)
+12. [Phần chưa có API và thiếu dữ liệu danh mục](#12-phần-chưa-có-api-và-thiếu-dữ-liệu-danh-mục)
+13. [Mẫu gọi API và trình tự ghép FE](#13-mẫu-gọi-api-và-trình-tự-ghép-fe)
+14. [Phạm vi kiểm chứng](#14-phạm-vi-kiểm-chứng)
 
 ## 1. Những điểm phải đọc trước
 
-> **Base URL local: `http://localhost:8080`. Mọi URL nghiệp vụ bắt đầu bằng `/api/v1`. Chỉ `POST /api/v1/auth/login` không cần token.** Những API môn học/kỳ học trước đây ghi “không cần đăng nhập” hiện vẫn đi qua `AccessTokenFilter`.
+> **TẤT CẢ URL `/api/v1/**` đều cần `Authorization: Bearer <accessToken>`, ngoại trừ `POST /api/v1/auth/login` và request `OPTIONS`.** Các câu “chưa yêu cầu đăng nhập” ở tài liệu MVP cũ không còn phản ánh filter chung hiện tại.
 
-> **Chưa có `/auth/refresh`.** Access token sống **900 giây (15 phút)**. `refreshToken` được trả về nhưng HTTP hiện chỉ dùng nó cho logout. Khi access token hết hạn, FE đưa về đăng nhập; không viết vòng lặp gọi refresh vào URL chưa có.
+> **Có `refreshToken` trong response nhưng CHƯA CÓ endpoint refresh token.** Access token sống **900 giây = 15 phút**. Khi hết hạn, FE yêu cầu đăng nhập lại; không gọi `/auth/refresh`.
 
-> **Tên JSON thực tế: `last`, `firstLogin`, `isLocked`.** Không suy tên JSON trực tiếp từ Java field `isLast`/`isFirstLogin`. Đã kiểm tra serialization bằng Jackson của dự án.
+> **`login.user.id` là User ID; `StudentResponse.id` là Student ID; `LecturerResponse.id` là Lecturer ID. Không dùng lẫn.** `/students/me` tự tra hồ sơ theo User ID trong token, không nhận ID từ FE.
 
-> **API có nhưng chưa hoàn tất phụ thuộc:** gợi ý môn mở lớp có thể trả **503 / 4317**; hủy lớp rỗng hiện trả **503 / 4325** do chưa có implementation `EnrollmentFacade.Planning`. Không hiển thị lỗi này như “không có dữ liệu” hay “hủy thành công”.
+> **Hai tên JSON dễ sai:** `PageResponse.last`, `UserInfoResponse.firstLogin`. Riêng `SemesterResponse.isLocked` vẫn giữ chữ `is`. Đã kiểm tra bằng Jackson trên DTO đã biên dịch, không suy tên JSON chỉ từ tên field Java.
 
-> **Tạo sinh viên/giảng viên thành công không đồng nghĩa gửi email thành công.** `success=true` cùng `notificationStatus="FAILED"` nghĩa là hồ sơ/tài khoản đã được tạo. FE hiển thị cảnh báo và nút gửi lại; không tự POST tạo hồ sơ lần nữa.
+> **Tạo sinh viên/giảng viên thành công có thể trả `notificationStatus="FAILED"`. Hồ sơ và tài khoản đã được lưu.** Hiển thị “đã tạo, gửi email thất bại” và cho gửi lại thông báo; không tự POST tạo lại.
 
-> **Thiếu REST API danh mục ngành, khóa, khoa và lớp hành chính.** Form tạo sinh viên/giảng viên cần ID thật từ BE/database. Không hard-code ID trong ví dụ và không tự nghĩ ra `/majors`, `/faculties`, `/cohorts`, `/administrative-classes`.
+> **`opening-subjects` và hủy lớp học phần chưa thể chạy trọn luồng khi cần lịch sử Enrollment.** Chưa có implementation `EnrollmentFacade.Planning` ở runtime; có thể nhận **503/4317** hoặc **503/4325**. Không biến lỗi này thành danh sách trống hoặc thông báo “không có nhu cầu”.
 
-> **Quyền chưa đồng nhất:** một số service kiểm tra role, nhiều API mới chỉ kiểm tra token còn hiệu lực. Bảng quyền bên dưới ghi đúng code hiện tại, không phải ma trận quyền nghiệp vụ đã hoàn thiện. Ẩn nút ở FE không thay thế phân quyền BE.
+> **Chưa có API danh mục ngành, khóa, lớp hành chính và khoa.** Form tạo người cần ID thật từ BE/DB; không tự đặt ID hay dùng mã ngành thay ID. Chi tiết cách lấy dữ liệu ở mục 12.
 
-## 2. Quy ước HTTP, JSON và quyền
+> **Import dùng batch nằm trong RAM**, mất khi BE restart; preview không tạo hồ sơ chính thức. Chỉ confirm mới tạo dữ liệu. **`invalidRows` hiện đếm số lỗi, không phải số dòng lỗi khác nhau.**
 
-### 2.1. Gửi request
+> **`DELETE /subjects/{id}` có JSON body; `DELETE /rooms/{id}` không có body.** Các thao tác xóa hiện có là xóa mềm. Không có API xóa sinh viên/giảng viên hoặc xóa kỳ học.
 
-- JSON: `Content-Type: application/json`, `Accept: application/json`.
-- Mọi API trừ login: `Authorization: Bearer <accessToken>` — đúng tiền tố `Bearer `, có một dấu cách. Không dùng `refreshToken` làm Bearer.
-- GET tìm kiếm nhận **query string**, không gửi DTO tìm kiếm trong JSON body. Bỏ query không dùng, tránh gửi chuỗi `"null"`/`"undefined"`.
-- Phân trang: `page=0` là trang đầu; `size=20` mặc định; `page >= 0`, `size >= 1`. Khi thay bộ lọc, FE reset `page=0`.
-- Tất cả ID đường dẫn/query là ID database. `UserInfoResponse.id`, `StudentResponse.id`, `LecturerResponse.id` **là ba loại ID khác nhau**. `batchId` nhập học là UUID string.
-- Các DTO TypeScript có hậu tố `SearchQuery` tương ứng Java `*SearchRequest` cộng query `page/size` của controller. `AdminUserSearchQuery` là tên phía FE, controller nhận các param rời.
-- HTTP tạo mới học phần/kỳ học/lô lớp trả **201**; tạo sinh viên/giảng viên trả **200**. Các thao tác `void` vẫn trả **200 + JSON**, không phải 204.
-- Hiện không có query `sort` được controller sử dụng; thứ tự được service ấn định.
+> **Phân quyền hiện chưa đồng nhất.** Chỉ các API chỉ rõ role trong bảng mới có kiểm tra role ở service; những API khác mới kiểm tra token chung. Ẩn nút ở FE phục vụ UX, không thay thế phần phân quyền BE còn để sau.
+
+## 2. Quy ước gọi API và response
+
+### 2.1. Địa chỉ, header và kiểu dữ liệu
+
+| Nội dung | Giá trị |
+|---|---|
+| Origin local mặc định | `http://localhost:8080` |
+| Base path | `/api/v1` |
+| JSON request | `Content-Type: application/json` |
+| Header xác thực | `Authorization: Bearer <accessToken>`, đúng tiền tố có khoảng trắng |
+| Upload Excel | `multipart/form-data`, field `file`; để browser tự đặt boundary |
+| ID | JSON number của Java Long; `batchId` là UUID string |
+| Ngày | `yyyy-MM-dd`, ví dụ `2026-11-05` |
+| Timestamp | ISO local date-time, ví dụ `2026-11-05T10:30:00.123`, không có `Z` |
+| Số thập phân | JSON number: `targetGpa: 3.2`, không gửi chuỗi `"3.2"` |
+| Enum | Gửi đúng chuỗi IN HOA, ví dụ `CHINH_QUY`, `ACTIVE` |
+| Phân trang | `page=0`, `size=20` mặc định; `page >= 0`, `size >= 1` |
+| Sort | Cố định tại service; chưa có query `sort` dùng chung |
+
+`API_URLS` đã chứa `/api/v1`. Nếu dùng hằng này, cấu hình base URL của HTTP client là origin, tránh tạo `/api/v1/api/v1/...`. Khi gọi từ máy khác phải cấu hình hostname/IP của BE, vì `localhost` là máy đang chạy browser.
+
+Ứng dụng đặt timezone UTC trong `main()`; ngày nghiệp vụ kỳ học/phòng/lớp tính theo **Asia/Ho_Chi_Minh**. Các field `LocalDate` là ngày, nên giữ nguyên chuỗi, không tự chuyển UTC rồi làm lệch ngày. Timestamp không có timezone đi kèm; khi hiển thị cần thống nhất cách diễn giải UTC của BE.
+
+CORS MVC hiện cho mọi origin pattern, header và các method GET/POST/PUT/DELETE/PATCH/OPTIONS, cho credentials. Xác thực API dùng token trong header, không có luồng đăng nhập bằng cookie trong các controller hiện tại.
 
 ### 2.2. Response chung
 
-Thành công có data:
+**Cột “Data” trong mọi bảng endpoint dưới đây là kiểu của `body.data`, đã nằm trong `ApiResponse<T>`.** Không phải response JSON phẳng.
 
-```json
+Thành công có dữ liệu:
+
+~~~json
 {
   "success": true,
   "message": "Success",
-  "data": { "id": 123 },
-  "timestamp": "2026-11-04T09:30:00.123456"
+  "data": {
+    "id": 1
+  },
+  "timestamp": "2026-11-05T10:30:00"
 }
-```
+~~~
 
-Thành công không có data (logout, đổi mật khẩu, quản trị lock/unlock/reset, xóa học phần):
+Thành công không có dữ liệu, chẳng hạn logout, xóa phòng hoặc reset mật khẩu:
 
-```json
+~~~json
 {
   "success": true,
   "message": "Đăng xuất thành công",
-  "timestamp": "2026-11-04T09:30:00"
+  "timestamp": "2026-11-05T10:30:00"
 }
-```
+~~~
 
-Lỗi:
+**Field null của envelope bị lược bỏ:** thành công thường không có `code`, `errors`, `path`; response void không có `data`. Không kiểm tra `code === 200` để xác định thành công. Field null bên trong các DTO nghiệp vụ thường vẫn xuất hiện.
 
-```json
+Lỗi nghiệp vụ/validation:
+
+~~~json
 {
   "success": false,
   "code": 1001,
   "message": "Dữ liệu đầu vào không hợp lệ",
-  "errors": [{ "field": "credits", "message": "Số tín chỉ phải từ 1 đến 5" }],
-  "path": "/api/v1/subjects",
-  "timestamp": "2026-11-04T09:30:00"
+  "errors": [
+    {
+      "field": "email",
+      "message": "must be a well-formed email address"
+    }
+  ],
+  "path": "/api/v1/students",
+  "timestamp": "2026-11-05T10:30:00"
 }
-```
+~~~
 
-**`code` là mã nghiệp vụ, không phải HTTP status.** `errors` chỉ có ở một số lỗi; không phải lỗi 400 nào cũng có `errors`. Dùng cả HTTP status và `success`, đọc `message` cho thông báo; không so sánh chuỗi message để điều khiển nghiệp vụ. `ApiResponse` bỏ các field null: thành công không có `code/errors/path`, thất bại không có `data`. DTO bên trong vẫn có thể chứa field null.
+`errors` **có thể không xuất hiện**. Nhiều lỗi chỉ có `code/message`. `errors[].field` cũng có thể là đường dẫn như `subjects[0].subjectId` hoặc `moduleClasses[20]`, không phải luôn là tên input.
 
-Data phân trang:
+API trả HTTP tương ứng với lỗi: ví dụ HTTP `401` và body `code=4000`. **Mã nghiệp vụ không phải HTTP status.** Không phân nhánh theo câu `message` vì có thông báo tùy tình huống và thông báo lỗi chu trình kèm mã môn.
 
-```json
+### 2.3. Phân trang
+
+~~~json
 {
-  "content": [],
-  "pageNumber": 0,
-  "pageSize": 20,
-  "totalElements": 0,
-  "totalPages": 0,
-  "last": true
+  "success": true,
+  "message": "Không tìm thấy kết quả",
+  "data": {
+    "content": [],
+    "pageNumber": 0,
+    "pageSize": 20,
+    "totalElements": 0,
+    "totalPages": 0,
+    "last": true
+  },
+  "timestamp": "2026-11-05T10:30:00"
 }
-```
+~~~
 
-FE đọc danh sách tại **`response.data.content`** nếu đang nói về JSON body; với Axios là **`axiosResponse.data.data.content`**. Một số danh sách rỗng trả `message="Không tìm thấy kết quả"`, vẫn là thành công.
+**Trang trống là thành công HTTP 200.** FE đọc `data.content`, không đọc `data.items`. Thông báo trang trống của `module-classes` và `admin/users` hiện vẫn là `Success`; không dùng message để nhận biết rỗng.
 
-### 2.3. Kiểu dữ liệu và ngày giờ
+Các bộ lọc kết hợp bằng AND, trừ phần tìm keyword thường OR giữa mã/tên. Khi đổi bộ lọc, FE nên đưa `page` về `0`. Không gửi query dưới dạng body JSON. Bỏ các query chưa chọn thay vì gửi chuỗi `"null"` hoặc `"undefined"`.
 
-| Loại | Truyền/nhận JSON | Lưu ý FE |
-|---|---|---|
-| `Long`, `Integer`, `int`, `long` | number | ID và sức chứa gửi dạng số; không tự đổi ID sang mã sinh viên/mã lớp |
-| `BigDecimal` | number | GPA/điểm không gửi string; làm tròn khi hiển thị theo yêu cầu UI |
-| `LocalDate` | `"yyyy-MM-dd"` | Gửi nguyên chuỗi từ date picker; không dùng `toISOString()` làm lệch ngày |
-| `LocalDateTime` | `"yyyy-MM-ddTHH:mm:ss[.phần_lẻ]"` | Timestamp/audit theo UTC khi chạy `main`, nhưng JSON **không có `Z`** |
-| Enum | string IN HOA | Dùng đúng giá trị TypeScript; nhãn tiếng Việt chỉ để hiển thị |
-| UUID | string | Giữ `batchId` do preview trả về |
+## 3. Đăng nhập và tài khoản
 
-`EduHubApplication.main()` đặt timezone JVM là UTC và bật JPA auditing. Riêng trạng thái/kết thúc kỳ học, điều kiện thao tác lớp dùng **ngày theo `Asia/Ho_Chi_Minh`**. FE không tự suy trạng thái kỳ chỉ bằng UTC hoặc cờ khóa; ưu tiên `SemesterResponse.status`.
+Nguồn: [AuthController](../src/main/java/com/eduhub/edu_hub/identity/api/AuthController.java), [AuthApplicationService](../src/main/java/com/eduhub/edu_hub/identity/application/AuthApplicationService.java), [AdminUserService](../src/main/java/com/eduhub/edu_hub/identity/application/AdminUserService.java), [AccessTokenFilter](../src/main/java/com/eduhub/edu_hub/identity/api/AccessTokenFilter.java).
 
-Nếu hiển thị timestamp audit như thời điểm tuyệt đối, diễn giải chuỗi đó là UTC (ví dụ thêm `Z` khi parse nếu chưa có offset), rồi format sang giờ Việt Nam. Không thêm `Z` cho `LocalDate`.
+### 3.1. URL và DTO
 
-### 2.4. Quyền được thực thi trong source
+| STT | Method | URL | Request | Data | HTTP thành công | Quyền thực tế |
+|---|---|---|---|---|---|---|
+| 01 | POST | `/api/v1/auth/login` | `LoginRequest` | `LoginResponse` | 200 | Công khai |
+| 02 | POST | `/api/v1/auth/logout` | `LogoutRequest` | Không có | 200 | Token hợp lệ |
+| 03 | POST | `/api/v1/auth/change-password` | `ChangePasswordRequest` | Không có | 200 | Token hợp lệ |
+| 04 | GET | `/api/v1/admin/users` | Query `AdminUserSearchQuery` | `PageResponse<UserInfoResponse>` | 200 | SYSTEM_ADMIN |
+| 05 | POST | `/api/v1/admin/users/{userId}/lock` | `LockBody` | Không có | 200 | SYSTEM_ADMIN |
+| 06 | POST | `/api/v1/admin/users/{userId}/unlock` | Không body | Không có | 200 | SYSTEM_ADMIN |
+| 07 | POST | `/api/v1/admin/users/{userId}/reset-password` | Không body | Không có | 200 | SYSTEM_ADMIN |
 
-Ký hiệu trong bảng endpoint:
+### 3.2. Login → đổi mật khẩu → logout
 
-| Mã | Điều kiện hiện tại |
+**01 — Login:** nhận `{"username":"...","password":"..."}`, cả hai không blank. Service khóa hàng User theo username, kiểm tra ACTIVE/khóa tạm và BCrypt, rồi tạo phiên trong `refresh_tokens`. JWT gắn User ID và session ID; filter các request sau kiểm tra chữ ký/hạn token, phiên chưa revoked và tài khoản còn ACTIVE/chưa xóa.
+
+~~~json
+{
+  "accessToken": "<access-token>",
+  "refreshToken": "<refresh-token>",
+  "tokenType": "Bearer",
+  "expiresIn": 900,
+  "user": {
+    "id": 15,
+    "username": "CT080101",
+    "email": null,
+    "role": "STUDENT",
+    "fullName": null,
+    "firstLogin": true,
+    "status": "ACTIVE"
+  },
+  "requirePasswordChange": true
+}
+~~~
+
+Đây là **ví dụ phần `data`**, token là placeholder. Login hiện chưa map `email` và `fullName`, không lấy tên hiển thị từ hai field này. Nếu cần hồ sơ SV, gọi `GET /students/me` bằng token STUDENT có liên kết hồ sơ.
+
+Sai mật khẩu trả `401/4003`; đủ **5 lần sai** đặt khóa tạm **15 phút**. Lần sai đạt ngưỡng vẫn trả `4003`, lần đăng nhập tiếp theo trong thời gian khóa trả `403/4004`. LOCKED/DISABLED cũng bị từ chối. Không có field thời điểm mở khóa trong response để FE làm countdown chính xác.
+
+**03 — Change password:**
+
+~~~json
+{
+  "currentPassword": "MatKhauCu@123",
+  "newPassword": "MatKhauMoi@123",
+  "confirmPassword": "MatKhauMoi@123"
+}
+~~~
+
+- Nếu `requirePasswordChange=true`/first-login: có thể bỏ `currentPassword`; tài khoản mới hiện được cấp mật khẩu ban đầu `12345` từ service, mật khẩu mới vẫn phải đạt chính sách.
+- Nếu không phải first-login: phải gửi `currentPassword` đúng. Nhập sai cũng tăng bộ đếm và có thể khóa tạm.
+- Mật khẩu mới: ít nhất 8 ký tự, có chữ hoa/chữ thường/chữ số/ký tự đặc biệt, không có khoảng trắng, khác mật khẩu hiện tại; confirmation phải khớp.
+- Service cập nhật hash, đặt first-login=false và **thu hồi TẤT CẢ phiên của User**.
+- Thành công chỉ trả message **“Đổi mật khẩu thành công. Vui lòng đăng nhập lại.”** FE xóa token cũ và đưa về login, không tiếp tục gọi API bằng token vừa dùng.
+
+**02 — Logout:** header là access token, body `{"refreshToken":"<token của cùng phiên>"}`. Service kiểm tra cặp session/User, hạn refresh token rồi revoke phiên đó. **Không gửi accessToken trong body.** FE xóa trạng thái đăng nhập khi logout xong; các phiên khác của User không bị logout theo.
+
+**Chú ý first-login:** source hiện trả cờ yêu cầu đổi mật khẩu nhưng chưa chặn đồng loạt API khác bằng `FIRST_LOGIN_REQUIRED`. FE nên chủ động chuyển vào màn đổi mật khẩu và chỉ mở ứng dụng chính sau khi đổi + đăng nhập lại. Không ghi trong UI rằng BE đã bảo vệ toàn bộ API theo cờ này.
+
+### 3.3. Quản trị User
+
+**04 — Search:** `GET /api/v1/admin/users?keyword=postman&page=0&size=20`. Chỉ tìm username không phân biệt hoa/thường, bỏ User đã xóa. Chưa có filter role/status hoặc sort công khai. Response `UserInfoResponse` có `email` từ User; `fullName` chưa map.
+
+**05 — Lock:** body chỉ `{"reason":"Lý do khóa"}`. Lưu `status=LOCKED` và revoke tất cả phiên của User đích. Tự khóa tài khoản của mình bị chặn `403/4001` nếu đang là SYSTEM_ADMIN ACTIVE cuối cùng theo phép đếm của service. `userId` lấy từ danh sách User, không lấy Student ID.
+
+**06 — Unlock:** không body. Lưu `status=ACTIVE`, xóa khóa tạm và reset bộ đếm sai mật khẩu. Không phục hồi những token đã revoke; người dùng phải login lại.
+
+**07 — Reset password:** không body, không dùng `ResetPasswordRequest` trong source. Service tự tạo mật khẩu tạm, cập nhật hash, đặt first-login=true, revoke mọi phiên rồi gửi email. Không trả mật khẩu cho FE. Thiếu email trả `400/4007`; lỗi gửi mail trả `502/4008` và transaction reset rollback.
+
+## 4. Sinh viên và hồ sơ cá nhân
+
+Nguồn: [StudentController](../src/main/java/com/eduhub/edu_hub/people/api/StudentController.java), [StudentApplicationService](../src/main/java/com/eduhub/edu_hub/people/application/StudentApplicationService.java), [MyStudentProfileService](../src/main/java/com/eduhub/edu_hub/people/application/MyStudentProfileService.java).
+
+### 4.1. URL và DTO
+
+| STT | Method | URL | Request | Data | HTTP | Quyền thực tế |
+|---|---|---|---|---|---|---|
+| 08 | GET | `/api/v1/students` | Query `StudentSearchRequest` + page/size | `PageResponse<StudentResponse>` | 200 | Token hợp lệ |
+| 09 | GET | `/api/v1/students/{id}` | Không body | `StudentResponse` | 200 | Token hợp lệ |
+| 10 | POST | `/api/v1/students` | `CreateStudentRequest` | `CreateStudentResponse` | **200** | ACADEMIC_ADMIN hoặc SYSTEM_ADMIN |
+| 11 | PUT | `/api/v1/students/{id}` | `UpdateStudentRequest` | `StudentResponse` | 200 | Token hợp lệ; chưa kiểm tra role riêng |
+| 12 | POST | `/api/v1/students/{id}/account-notification/resend` | Không body | `AccountNotificationResponse` | 200 | ACADEMIC_ADMIN hoặc SYSTEM_ADMIN |
+| 13 | GET | `/api/v1/students/me` | Không body | `StudentResponse` | 200 | STUDENT, có hồ sơ gắn User |
+| 14 | PATCH | `/api/v1/students/me` | `UpdateMyStudentProfileRequest` | `StudentResponse` | 200 | STUDENT, có hồ sơ gắn User |
+
+### 4.2. Tra cứu và dữ liệu trả về
+
+**08 — Search:** các query tùy chọn: `keyword` (MSSV/họ tên), `majorId`, `cohortId`, `classId`, `activityStatus`, `academicWarningStatus`, `page`, `size`. `activityStatus` nhận STUDYING/DEACTIVATED/DELETED, sai giá trị trả `400/1001`. `academicWarningStatus` là chuỗi so sánh chính xác, chưa có enum quy định. Sắp xếp ID tăng dần, chỉ lấy hồ sơ chưa xóa mềm; keyword không phân biệt hoa/thường nhưng service SV hiện không trim/escape keyword như một số module khác.
+
+**09 — Detail:** dùng Student ID. Service đọc Student + lớp + khóa, lấy tên ngành theo lô qua `CurriculumFacade.ReferenceData`, map sang DTO. Không thấy/đã xóa: `404/4101`.
+
+`StudentResponse` có các field sau; kiểu chính xác và nullable nằm trong file TS:
+
+| Nhóm | Field trả về |
 |---|---|
-| PUBLIC | Login; filter bỏ qua đường dẫn này |
-| TOKEN | Access token hợp lệ + session chưa revoke/chưa hết hạn + user ACTIVE/chưa soft delete. **Chưa kiểm tra role tại endpoint/service này** |
-| ADMIN | TOKEN và role `SYSTEM_ADMIN` |
-| ACADEMIC | TOKEN và role `ACADEMIC_ADMIN` **hoặc** `SYSTEM_ADMIN` |
-| STUDENT | TOKEN và role `STUDENT`, có hồ sơ People nối đúng `userId`; có kiểm tra khóa tạm trong `requireCurrentStudent` |
+| Hồ sơ | `id`, `studentCode`, `fullName`, `dateOfBirth`, `email`, `phone`, `citizenId` |
+| Học tập/danh mục | `majorName`, `cohortCode`, `className`, `trainingType`, `entranceScore`, `targetGpa` |
+| Trạng thái | `activityStatus`, `academicWarningStatus`, `academicWarningReason`, `statusReason` |
+| Metadata | `createdAt` |
 
-`OPTIONS` được filter bỏ qua cho preflight. CORS MVC hiện cho mọi origin pattern, các method GET/POST/PUT/DELETE/PATCH/OPTIONS và mọi header, credentials=true, maxAge=3600. FE xác thực bằng Bearer header; không có flow đăng nhập bằng cookie trong controller hiện tại. Filter trả 401 trước MVC; nếu trình duyệt không đọc được body 401 do CORS, kiểm tra thêm Network/proxy/cấu hình filter phía BE, không giả định luôn đọc được JSON.
+**Response hiện không có `userId`, `majorId`, `cohortId`, `administrativeClassId` hay `gender`.** Khi mở form sửa, không suy ID từ tên lớp/ngành; cần dữ liệu danh mục do BE cung cấp. `statusReason` được khai báo trong DTO nhưng mapper hiện chưa gán nên thường null.
 
-`requirePasswordChange=true`/`firstLogin=true` **chưa bị filter chặn khỏi mọi API khác**. FE phải điều hướng bắt buộc đổi mật khẩu để hoàn tất luồng sản phẩm. Mã `4006 FIRST_LOGIN_REQUIRED` mới được khai báo, chưa có chỗ ném trong luồng endpoint hiện tại.
+### 4.3. Tạo sinh viên
 
-### 2.5. Luồng khởi động và request chung
+**10 — Request mẫu:** thay các ID và email bằng dữ liệu thật.
 
-`EduHubApplication.main` đặt UTC → `SpringApplication.run` khởi tạo Spring context, scan các bean trong `com.eduhub.edu_hub`, nạp config/profile, kết nối datasource và chạy Flyway → JPA khởi tạo (profile dev dùng `ddl-auto=validate`) → web server phục vụ request. Dev admin bootstrap chạy theo biến môi trường ở mục 12.2. Thiếu config/database hoặc migration không hợp lệ thì cần xử lý khởi động BE trước khi ghép FE.
-
-```mermaid
-flowchart TD
-  FE[Frontend] --> F[AccessTokenFilter]
-  F -->|Login hoặc OPTIONS được bỏ qua kiểm tra token| C[Controller: bind query/path/body và validation]
-  F -->|API khác: token và session hợp lệ| C
-  F -->|Thiếu hoặc sai token/session| E401[HTTP 401 + ApiResponse lỗi]
-  C --> S[Application Service: quyền và quy tắc nghiệp vụ]
-  S --> R[Repository của module]
-  S --> X[Facade khi cần dữ liệu liên module]
-  R --> DB[(PostgreSQL)]
-  X --> O[Module cung cấp dữ liệu]
-  DB --> M[Map Entity sang DTO]
-  O --> M
-  M --> A[ApiResponse DTO hoặc PageResponse DTO]
-  A --> FE
-  C -->|Validation hoặc exception| H[Handler riêng của controller/module hoặc GlobalExceptionHandler]
-  S -->|Business exception| H
-  H --> ER[HTTP status + code/message/errors/path]
-  ER --> FE
-  E401 --> FE
-```
-
-Phân quyền bổ sung chỉ xảy ra ở những service ghi ADMIN/ACADEMIC/STUDENT trong bảng. Preview/điều chỉnh nhập học có phần state trong RAM; gửi email có side effect riêng như mô tả từng luồng, không phải mọi thao tác đều chỉ đọc/ghi DB.
-
-## 3. Danh sách đầy đủ 38 endpoint
-
-**Quy ước bảng:** URL đầy đủ đã có `/api/v1`; “Data” là phần bên trong `ApiResponse<T>`. `—` ở body nghĩa là không gửi JSON body. Tất cả path ID là bắt buộc.
-
-### Identity: 7 endpoint
-
-| # | Method | URL | Query / body | Data | HTTP thành công | Quyền |
-|---|---|---|---|---|---|---|
-| I01 | POST | `/api/v1/auth/login` | `LoginRequest` | `LoginResponse` | 200 | PUBLIC |
-| I02 | POST | `/api/v1/auth/logout` | `LogoutRequest` | không có | 200 | TOKEN |
-| I03 | POST | `/api/v1/auth/change-password` | `ChangePasswordRequest` | không có | 200 | TOKEN |
-| I04 | GET | `/api/v1/admin/users` | query `AdminUserSearchQuery` | `PageResponse<UserInfoResponse>` | 200 | ADMIN |
-| I05 | POST | `/api/v1/admin/users/{userId}/lock` | `LockBody` | không có | 200 | ADMIN |
-| I06 | POST | `/api/v1/admin/users/{userId}/unlock` | — | không có | 200 | ADMIN |
-| I07 | POST | `/api/v1/admin/users/{userId}/reset-password` | — | không có | 200 | ADMIN |
-
-### Sinh viên, hồ sơ cá nhân và nhập học: 10 endpoint
-
-| # | Method | URL | Query / body | Data | HTTP thành công | Quyền |
-|---|---|---|---|---|---|---|
-| P01 | GET | `/api/v1/students` | query `StudentSearchQuery` | `PageResponse<StudentResponse>` | 200 | TOKEN |
-| P02 | GET | `/api/v1/students/{id}` | — | `StudentResponse` | 200 | TOKEN |
-| P03 | POST | `/api/v1/students` | `CreateStudentRequest` | `CreateStudentResponse` | 200 | ACADEMIC |
-| P04 | PUT | `/api/v1/students/{id}` | `UpdateStudentRequest` | `StudentResponse` | 200 | TOKEN |
-| P05 | POST | `/api/v1/students/{id}/account-notification/resend` | — | `AccountNotificationResponse` | 200 | ACADEMIC |
-| P06 | GET | `/api/v1/students/me` | — | `StudentResponse` | 200 | STUDENT |
-| P07 | PATCH | `/api/v1/students/me` | `UpdateMyStudentProfileRequest` | `StudentResponse` | 200 | STUDENT |
-| P08 | POST | `/api/v1/students/admission/preview` | multipart field **`file`** (.xlsx) | `AdmissionPreviewResponse` | 200 | TOKEN |
-| P09 | PUT | `/api/v1/students/admission/{batchId}/assignment` | `AdmissionClassAdjustmentRequest` | `AdmissionPreviewResponse` | 200 | TOKEN |
-| P10 | POST | `/api/v1/students/admission/{batchId}/confirm` | `AdmissionConfirmRequest` | `AdmissionConfirmResponse` | 200 | TOKEN |
-
-### Giảng viên: 4 endpoint
-
-| # | Method | URL | Query / body | Data | HTTP thành công | Quyền |
-|---|---|---|---|---|---|---|
-| L01 | GET | `/api/v1/lecturers` | query `LecturerSearchQuery` | `PageResponse<LecturerResponse>` | 200 | TOKEN |
-| L02 | GET | `/api/v1/lecturers/{id}` | — | `LecturerResponse` | 200 | TOKEN |
-| L03 | POST | `/api/v1/lecturers` | `CreateLecturerRequest` | `CreateLecturerResponse` | 200 | ACADEMIC |
-| L04 | POST | `/api/v1/lecturers/{id}/account-notification/resend` | — | `LecturerNotificationResponse` | 200 | ACADEMIC |
-
-### Học phần: 7 endpoint
-
-| # | Method | URL | Query / body | Data | HTTP thành công | Quyền |
-|---|---|---|---|---|---|---|
-| C01 | GET | `/api/v1/subjects` | query `SubjectSearchQuery` | `PageResponse<SubjectResponse>` | 200 | TOKEN |
-| C02 | GET | `/api/v1/subjects/{id}` | — | `SubjectResponse` | 200 | TOKEN |
-| C03 | POST | `/api/v1/subjects` | `CreateSubjectRequest` | `SubjectResponse` | **201** | TOKEN |
-| C04 | PUT | `/api/v1/subjects/{id}` | `UpdateSubjectRequest` | `SubjectResponse` | 200 | TOKEN |
-| C05 | POST | `/api/v1/subjects/{id}/deactivate` | `SubjectActionRequest` | `SubjectResponse` | 200 | TOKEN |
-| C06 | DELETE | `/api/v1/subjects/{id}` | **`SubjectActionRequest` vẫn bắt buộc trong body** | không có | 200 | TOKEN |
-| C07 | POST | `/api/v1/subjects/{id}/prerequisites` | `SetPrerequisiteRequest` | `SubjectResponse` | 200 | TOKEN |
-
-### Kỳ học: 4 endpoint
-
-| # | Method | URL | Query / body | Data | HTTP thành công | Quyền |
-|---|---|---|---|---|---|---|
-| S01 | GET | `/api/v1/semesters` | query `SemesterSearchQuery` | `PageResponse<SemesterResponse>` | 200 | TOKEN |
-| S02 | GET | `/api/v1/semesters/{id}` | — | `SemesterResponse` | 200 | TOKEN |
-| S03 | POST | `/api/v1/semesters` | `CreateSemesterRequest` | `SemesterResponse` | **201** | TOKEN |
-| S04 | PUT | `/api/v1/semesters/{id}` | `UpdateSemesterRequest` | `SemesterResponse` | 200 | TOKEN |
-
-### Lớp học phần: 6 endpoint
-
-| # | Method | URL | Query / body | Data | HTTP thành công | Quyền |
-|---|---|---|---|---|---|---|
-| M01 | GET | `/api/v1/semesters/{semesterId}/opening-subjects` | — | `OpeningSubjectResponse[]` | 200 | TOKEN; phụ thuộc dữ liệu |
-| M02 | GET | `/api/v1/module-classes` | query `ModuleClassSearchQuery` | `PageResponse<ModuleClassResponse>` | 200 | TOKEN |
-| M03 | GET | `/api/v1/module-classes/{id}` | — | `ModuleClassResponse` | 200 | TOKEN |
-| M04 | POST | `/api/v1/semesters/{semesterId}/module-classes/batch` | `CreateModuleClassesRequest` | `ModuleClassResponse[]` | **201** | TOKEN |
-| M05 | PATCH | `/api/v1/module-classes/{id}` | `UpdateModuleClassRequest` | `ModuleClassResponse` | 200 | TOKEN |
-| M06 | POST | `/api/v1/module-classes/{id}/cancel` | `CancelModuleClassRequest` | `ModuleClassResponse` | 200 nếu đủ nguồn; hiện có thể 503 | TOKEN; phụ thuộc Enrollment |
-
-## 4. Đăng nhập, mật khẩu và quản trị tài khoản
-
-### 4.1. DTO request và ràng buộc
-
-| DTO | Field | Bắt buộc / quy tắc |
-|---|---|---|
-| `LoginRequest` | `username`, `password` | Hai string không được blank |
-| `LogoutRequest` | `refreshToken` | String không blank; phải thuộc cùng session với access token |
-| `ChangePasswordRequest` | `currentPassword` | Có thể bỏ ở first login; còn lại phải khớp mật khẩu hiện tại |
-| | `newPassword`, `confirmPassword` | Không blank; xem chính sách bên dưới |
-| `AdminUserSearchQuery` | `keyword`, `page`, `size` | keyword mặc định rỗng, tìm username chứa chuỗi, không phân biệt hoa/thường; page/size như quy ước |
-| `LockBody` | `reason` | String không blank; **không có `userId` trong body** |
-
-Mật khẩu mới: **ít nhất 8 ký tự**, có chữ hoa, chữ thường, chữ số và ký tự đặc biệt; **không có khoảng trắng**, không trùng mật khẩu hiện tại, `confirmPassword` phải khớp. Lỗi chính sách ở endpoint đổi mật khẩu trả `1001` và `errors` theo `newPassword`/`confirmPassword` (không phải luôn `4005`).
-
-### 4.2. Luồng của từng endpoint
-
-| Endpoint | Luồng chạy và kết quả |
-|---|---|
-| I01 | `AuthController.login → AuthApplicationService.login/authenticate → UserRepository` khóa bản ghi username, kiểm tra trạng thái/khóa tạm và BCrypt. Sai thông tin: 401/4003; sai 5 lần đặt khóa tạm 15 phút; lần làm đủ 5 vẫn trả 4003, lần gọi trong thời gian khóa trả 403/4004. Đúng thì reset số lần sai, lưu session trong `refresh_tokens` (hash SHA-256 của refresh token), ký JWT HS256 gắn `uid/sid/sub/role/iat/exp`, trả `LoginResponse`. |
-| I02 | `AuthController.logout → AuthApplicationService.logout → RefreshTokenRepository`: kiểm tra refresh token chưa revoke/chưa hết hạn, khớp user và **session** của access token; revoke session đó. Sai/khác session: 401/4000. Access token của session đó lập tức không dùng được. |
-| I03 | `AuthController.changePassword → AuthApplicationService.changePassword → UserRepository + PasswordPolicyValidator + RefreshTokenRepository`: kiểm tra user/session, kiểm tra mật khẩu cũ nếu đã qua first login, validate mật khẩu mới, lưu BCrypt, `firstLogin=false`, **revoke tất cả session**. Sai mật khẩu cũ cũng cộng bộ đếm thất bại/khóa tạm. Sau success phải đăng nhập lại. |
-| I04 | `AdminUserController.search → AdminUserService.search/actor → UserRepository`: chỉ SYSTEM_ADMIN, loại user soft delete, tìm theo username, phân trang. Chưa hỗ trợ filter role/status hoặc tìm email/fullName. |
-| I05 | `AdminUserService.lock`: kiểm tra SYSTEM_ADMIN, tìm target chưa xóa, đặt `status=LOCKED`, revoke mọi session target, log reason. Không cho admin tự khóa nếu số SYSTEM_ADMIN ACTIVE còn <= 1. Không tự suy thành quy tắc “không ai khóa được admin cuối” cho mọi target. |
-| I06 | `AdminUserService.unlock`: đặt `status=ACTIVE`, xóa khóa tạm, reset bộ đếm. Session đã revoke không được phục hồi; target đăng nhập lại. |
-| I07 | `AdminUserService.resetPassword`: target phải có email; sinh mật khẩu tạm, hash, `firstLogin=true`, revoke mọi session, gửi email. Không trả mật khẩu trong response. Thiếu email: 400/4007; gửi email lỗi: 502/4008 và transaction rollback. Reset không tự đổi `status` hay mở khóa. |
-
-**Login response:** `user.email` và `user.fullName` hiện null vì mapper login không điền; admin search có map email nhưng fullName vẫn null. FE không lấy tên sinh viên từ `login.user.fullName`. Với tài khoản STUDENT, gọi P06 để lấy hồ sơ; không có `/auth/me` hay `/lecturers/me` hiện tại.
-
-### 4.3. Chuỗi thao tác FE
-
-```text
-Login → lưu accessToken + refreshToken + user + thời điểm hết hạn
-  ├─ requirePasswordChange=true → màn đổi mật khẩu → success → xóa phiên → login lại
-  └─ false → vào màn theo role → gắn Bearer cho các API tiếp theo
-
-Logout → gửi Bearer và đúng refreshToken cùng session → xóa phiên FE
-401 do token hết hạn/session revoke → xóa phiên → về login (không gọi /auth/refresh)
-```
-
-403/4004 lúc login là tài khoản khóa; 403/4001 ở API quản trị là thiếu quyền, không xử lý hai lỗi này như token hết hạn.
-
-## 5. Sinh viên và hồ sơ cá nhân
-
-### 5.1. Tìm kiếm / xem / sửa
-
-`StudentSearchQuery`: `keyword` tìm chứa MSSV hoặc họ tên, không phân biệt hoa/thường; `majorId`, `cohortId`, **`classId`** lọc quan hệ lớp; `activityStatus` nhận `STUDYING|DEACTIVATED|DELETED`; `academicWarningStatus` là string khớp chính xác. Các điều kiện được AND; kết quả loại soft delete, sort `id ASC`.
-
-| Endpoint | Luồng chạy và lưu ý |
-|---|---|
-| P01 | `StudentController.search → StudentApplicationService.search → StudentRepository` với Specification, rồi tra tên ngành theo lô qua `CurriculumFacade.ReferenceData`. `page<0/size<1/activityStatus` sai → 400/1001. Rỗng trả success + page rỗng. |
-| P02 | `StudentApplicationService.findById → StudentRepository.findByIdAndDeletedFalse → map StudentResponse`; không tồn tại/đã soft delete → 404/4101. |
-| P04 | `StudentApplicationService.update → StudentRepository + AdministrativeClassRepository`: HTTP là **PUT nhưng service chỉ sửa các field non-null**. `{}` có thể không đổi gì; `null` thường là giữ nguyên. Field `studentCode` có trong DTO Java nhưng **bất kỳ giá trị non-null đều bị 400/1001**, kể cả mã cũ. Không có cập nhật activityStatus trong DTO này. |
-| P06 | `MyStudentProfileController.get → MyStudentProfileService.get → IdentityFacade.requireCurrentStudent → StudentRepository.findByUserIdAndDeletedFalse → StudentApplicationService.findById`. Hồ sơ được xác định từ token, không nhận studentId phía FE. Không phải STUDENT → 403/4001; chưa có liên kết People → 404/4101. |
-| P07 | `MyStudentProfileService.update → requireCurrentStudent → StudentRepository.findMyProfileForUpdate`: khóa hồ sơ của chính user, cập nhật đúng hai field, ghi `audit_logs` nếu có thay đổi, trả hồ sơ mới. |
-
-`UpdateStudentRequest`:
-
-| Field | Ràng buộc / hành vi hiện tại |
-|---|---|
-| `fullName` | Tùy chọn, non-null thì không blank, có trim |
-| `dateOfBirth` | Tùy chọn; nếu có phải là ngày quá khứ |
-| `email` | Tùy chọn; kiểm tra định dạng email |
-| `phone`, `citizenId` | Tùy chọn string; non-null thì được gán |
-| `administrativeClassId` | Tùy chọn số dương, lớp phải tồn tại/chưa xóa |
-| `targetGpa` | Tùy chọn, **chỉ validate >= 0** tại P04; khác P07 có trần 4 |
-| `academicWarningStatus` | String tùy chọn, hiện không có enum cố định. Gửi `""` hoặc blank để xóa cả trạng thái và lý do |
-| `academicWarningReason` | String tùy chọn; blank xóa lý do; không cho lý do nonblank khi không có trạng thái. Đổi trạng thái thì lý do cũ bị xóa nếu không gửi lý do mới |
-| `statusReason` | Chỉ được đưa vào log khi update, **chưa lưu vào hồ sơ**; response hiện null |
-
-**Giới hạn cần biết:** P04 chưa kiểm tra role quản trị, chưa đồng bộ email hồ sơ sang User, chưa kiểm tra sức chứa/tính khớp ngành–khóa khi đổi lớp như P03. FE không coi các ràng buộc của API tạo đã áp dụng cho API sửa. `StudentResponse` hiện **không trả** `gender`, `userId`, `majorId`, `cohortId`, `administrativeClassId` hoặc trạng thái gửi mail; có tên ngành/khóa/lớp nhưng không đủ ID để tự dựng lại mọi select form sửa. Nếu cần form chọn đầy đủ, BE phải bổ sung lookup/response.
-
-### 5.2. Tạo sinh viên và gửi lại thông báo
-
-`CreateStudentRequest`:
-
-| Field | Bắt buộc / quy tắc |
-|---|---|
-| `fullName` | Có, không blank, tối đa 255 ký tự |
-| `email` | Có, email hợp lệ, tối đa 255; service trim/lowercase |
-| `majorId`, `cohortId`, `administrativeClassId`, `trainingType` | Có; phải khớp ngành–khóa–hệ của lớp đã chọn |
-| `reason` | Có, không blank, sau trim tối đa 500 |
-| `dateOfBirth`, `gender` | Tùy chọn; P03 chưa có `@Past` trên ngày sinh |
-| `phone`, `citizenId` | Tùy chọn, tối đa 255; citizenId được bỏ khoảng trắng |
-| `entranceScore` | Tùy chọn number >= 0 |
-
-Ví dụ cấu trúc; **thay các ID bằng dữ liệu thật**:
-
-```json
+~~~json
 {
   "fullName": "Nguyễn Văn An",
-  "dateOfBirth": "2008-03-12",
-  "gender": "Nam",
-  "email": "an.nguyen@example.com",
+  "dateOfBirth": "2008-05-20",
+  "gender": "NAM",
+  "email": "an@example.com",
   "phone": "0901234567",
+  "citizenId": "012345678901",
   "majorId": 1,
-  "cohortId": 2,
-  "administrativeClassId": 3,
+  "cohortId": 1,
+  "administrativeClassId": 1,
   "trainingType": "CHINH_QUY",
   "entranceScore": 25.5,
-  "reason": "Bổ sung hồ sơ trúng tuyển"
+  "reason": "Bổ sung hồ sơ nhập học"
 }
-```
+~~~
 
-- **P03:** `StudentController.create → StudentApplicationService.create → IdentityFacade.requireAcademicAdmin`. Transaction khóa lớp, kiểm tra email/CCCD trùng, sức chứa, khớp ngành–khóa–hệ, sinh MSSV, tạo User STUDENT và Student STUDYING, ghi audit. **Commit hồ sơ trước**, rồi gửi mail và lưu kết quả gửi trong transaction riêng. Trả `CreateStudentResponse` với `student`, `warnings`, `notificationStatus`, `notificationError`.
-- **P05:** kiểm tra quyền ACADEMIC, tìm student/user, gửi lại thông báo tài khoản ban đầu và lưu kết quả/audit; **không tạo lại hồ sơ**, không reset mật khẩu. Đã qua first login có thể trả success nhưng `FAILED / ACCOUNT_ALREADY_ACTIVATED`.
-- Trùng tên + ngày sinh chỉ tạo warning, không chặn. Trùng email/CCCD chặn bằng 409/4113 hoặc 4114. Lớp đầy → 400/4105; không khớp lớp → 400/4115.
-- MSSV do BE sinh: ánh xạ ngành `CNTT→CT`, `ATTT→AT`, `DTVT→DT`, `TTNT→AI`, tiếp theo khóa 2 số + lớp 2 số + STT 2 số; ví dụ `CT080101`. Khóa phải theo 2 chữ + 1–2 số, lớp dạng `L01`, STT 1–99. **Không gửi studentCode/username/password trong body tạo**.
-- Tài khoản mới dùng username=MSSV, mật khẩu ban đầu hiện là `12345`, bắt buộc đổi ở lần đầu theo cờ response. FE chỉ dùng thông tin này cho luồng tích hợp hiện tại, không tự sinh hay gửi mật khẩu trong API tạo.
+| Field | Bắt buộc | Validation / xử lý |
+|---|---|---|
+| fullName | Có | Không blank, <=255, trim |
+| email | Có | Email hợp lệ, <=255; trim/lowercase; trùng hồ sơ chưa xóa trả 4113 |
+| majorId, cohortId, administrativeClassId | Có | Phải cùng ngành–khóa của lớp; dùng ID thật |
+| trainingType | Có | CHINH_QUY/LIEN_THONG/VAN_BANG_2; phải khớp hệ của lớp |
+| reason | Có | Không blank, trim rồi <=500 |
+| dateOfBirth | Không | LocalDate; DTO tạo SV hiện không bắt buộc quá khứ |
+| gender | Không | Chuỗi tự do, trim; không có enum BE |
+| phone, citizenId | Không | <=255; CCCD bỏ khoảng trắng, rỗng thành null |
+| entranceScore | Không | >=0 |
 
-### 5.3. PATCH hồ sơ cá nhân: phải phân biệt bỏ field và null
+Luồng: kiểm tra quyền → chuẩn hóa/trùng email-CCCD → khóa lớp hành chính → kiểm tra scope/sức chứa → sinh MSSV → tạo User STUDENT + hồ sơ STUDYING + audit trong transaction → commit → gửi email → ghi kết quả gửi bằng transaction riêng.
 
-```json
-{ "targetGpa": 3.5, "phone": "0901234567" }
-```
+MSSV do BE sinh, ví dụ `CT080101`, từ ngành CNTT→CT, ATTT→AT, DTVT→DT, TTNT→AI + số khóa + số lớp + STT 01–99. Không gửi `studentCode`, `username`, `password` hoặc `userId` khi tạo. Lớp/khóa không đủ định dạng hoặc hết STT sẽ bị từ chối theo mã lỗi ở mục 11.
 
-- Chỉ cho **`targetGpa` (0..4)** và **`phone` (<=255 ký tự, có trim)**.
-- Không gửi field → giữ nguyên; gửi `null` → xóa; `{}` → không thay đổi; gửi `phone:""` → lưu chuỗi rỗng sau trim.
-- Gửi `fullName`, `studentId`, `email`, `activityStatus`, `targetGpaPresent`... đều bị từ chối 400/1001 với lỗi field `request`. **Không gửi nguyên StudentResponse lên P07.**
-- GPA không hợp lệ thường bị Bean Validation trả 1001, field `targetGpa`; service có thêm guard 4120.
+Response là `{student, warnings, notificationStatus, notificationError}`, **không phải trực tiếp StudentResponse**. Trùng họ tên + ngày sinh chỉ tạo warning cần kiểm tra, không tự chặn. Email lỗi sau commit vẫn là HTTP 200/success=true.
 
-## 6. Nhập học bằng Excel
+**12 — Resend:** nhận Student ID; cần đã có User. Chỉ gửi lại thông báo, không tạo hồ sơ mới hoặc reset mật khẩu. Có thể trả `notificationStatus=FAILED` với `ACCOUNT_ALREADY_ACTIVATED`, `ACCOUNT_EMAIL_MISSING` hoặc `EMAIL_SEND_FAILED`. FE hiển thị kết quả nghiệp vụ kể cả HTTP thành công. Luồng gửi lại SV hiện chưa kiểm tra lại hash mật khẩu ban đầu như luồng giảng viên; không diễn giải resend là cấp lại mật khẩu.
 
-### 6.1. P08: upload → parse → validate → đề xuất phân lớp
+### 4.4. Cập nhật hồ sơ quản trị
 
-`StudentController.preview → StudentAdmissionService.preview → StudentAdmissionSpreadsheetParser → StudentRepository + CurriculumFacade.Majors + AdministrativeClassRepository → BalancedClassAssignmentStrategy → AdmissionPreviewStore`.
+**11 — PUT hiện xử lý kiểu cập nhật từng field**, không bắt buộc gửi nguyên hồ sơ. Chỉ các field khác null được cập nhật:
 
-Gửi `multipart/form-data` với **field `file`**, đuôi `.xlsx`, không rỗng. FE dùng `FormData` và **không tự đặt `Content-Type`** để browser sinh boundary. Đọc **sheet đầu tiên**, dòng đầu chứa các header sau (không bắt buộc thứ tự cột; BE trim/lowercase header):
-
-```text
-ma_ho_so | ho_ten | ngay_sinh | gioi_tinh | email | diem_xet_tuyen | ma_nganh | ma_khoa | he_dao_tao
-```
-
-- Các cột đều bắt buộc; dòng trắng được bỏ qua. `ngay_sinh` là ngày Excel hoặc chuỗi `dd/MM/yyyy`; response JSON vẫn là `yyyy-MM-dd`.
-- Điểm xét tuyển là số không âm, chấp nhận dấu phẩy thập phân khi parse chuỗi. `he_dao_tao` dùng enum, ví dụ `CHINH_QUY`.
-- **Mỗi file chỉ một ngành, một khóa, một hệ đào tạo.** Mã ngành/khóa/lớp phải tồn tại trong dữ liệu BE. File ví dụ trong repo: [Danh_sach_trung_tuyen_CT8_20SV_CNTT.xlsx](../postman/Danh_sach_trung_tuyen_CT8_20SV_CNTT.xlsx).
-- Kiểm tra mã hồ sơ/email trùng trong file hoặc trong Student chưa xóa, email sai, ngành/lớp không hợp lệ; dòng không hợp lệ không vào danh sách sẽ tạo.
-- Phân lớp theo điểm giảm dần, ưu tiên tránh trùng họ tên, cân sĩ số và điểm trung bình, không vượt maxCapacity. Không có lớp còn chỗ thì hồ sơ đó bị ghi lỗi và loại khỏi batch hợp lệ.
-- **Preview không tạo User/Student.** Response có thể `success=true` dù `data.errors` chứa lỗi dữ liệu file. Hiển thị lỗi theo dòng, danh sách lớp, dự kiến sĩ số/điểm trung bình và warning trước confirm.
-- **`invalidRows` hiện bằng `errors.length`, không phải số dòng lỗi distinct.** Một dòng có nhiều lỗi được đếm nhiều lần; đừng dùng `totalRows - invalidRows` để suy `validRows`.
-- File lỗi cấu trúc có thể trả preview `totalRows=0`, `classes=[]`, `errors` field `file`. FE nên khóa confirm khi `validRows=0` thay vì chỉ nhìn HTTP 200.
-- Batch lưu **RAM của process**, không lưu DB, không có API GET lấy lại preview, không có TTL được code. Restart BE làm mất batch → 404/4106; cần upload lại. Chưa có ràng buộc batch theo user trong store.
-
-### 6.2. P09: điều chỉnh một sinh viên trong batch
-
-```json
-{ "applicationCode": "HS0001", "targetClassId": 3 }
-```
-
-`StudentAdmissionService.adjust → AdmissionPreviewStore.get → synchronized(batch) → kiểm tra batch chưa confirm → kiểm tra mã hồ sơ/lớp trong batch và sức chứa → đổi assignedClassId → tính lại warning → trả toàn bộ AdmissionPreviewResponse`.
-
-`applicationCode` không blank, tìm không phân biệt hoa/thường; `targetClassId` không null và **phải chọn từ `preview.classes[].classId`**. Một lần chỉ đổi một hồ sơ. FE thay state preview bằng response mới. Lớp đầy → 400/4105; batch không tồn tại → 404/4106; đã confirm → 409/4107.
-
-### 6.3. P10: xác nhận tạo hồ sơ và tài khoản
-
-```json
-{ "actor": "username-hien-tai", "acceptMinimumCapacityWarning": false }
-```
-
-`StudentAdmissionService.confirm → AdmissionPreviewStore → kiểm tra warning → khóa các lớp theo ID tăng dần → sinh MSSV → IdentityFacade.createStudentAccount + StudentRepository.save cho từng hồ sơ hợp lệ → đánh dấu batch confirmed → audit_logs → AdmissionConfirmResponse`.
-
-- Body JSON bắt buộc; `acceptMinimumCapacityWarning` mặc định false. Có capacity warning mà chưa chấp nhận → **409/4108**. FE đưa warning ra để người dùng quyết định rồi mới gửi true; không tự động bật.
-- `actor` hiện do body cung cấp để audit; service **chưa lấy actor từ token, chưa check role ACADEMIC cho P08–P10**. FE nên gửi username đang đăng nhập; đây là giới hạn BE cần biết khi phân quyền màn nhập học.
-- Chỉ tạo các hồ sơ hợp lệ còn trong batch; không cần toàn bộ file hợp lệ mới confirm. Sau success tải lại danh sách sinh viên. Không có endpoint rollback batch đã confirm.
-- `emailFailures` là **danh sách mã hồ sơ (`applicationCode`)**, không phải email, cũng không phải danh sách sinh viên tạo thất bại. Email lỗi được bắt lại, hồ sơ/user vẫn được tạo.
-- Khác P03/L03, luồng batch hiện gọi mail **trong transaction**. Side effect mail không rollback cùng DB; batch `confirmed` nằm trong RAM. **Không tự retry confirm khi timeout/lỗi commit mà chưa đối soát**; lần gọi sau có thể 4107, hoặc trạng thái DB/mail cần kiểm tra.
-- Code confirm chưa kiểm tra lại toàn bộ validation/sức chứa sau thời gian preview như một luồng nhập học hoàn chỉnh. Disable double-submit; hiển thị loading khi confirm, phân biệt lỗi batch/mã MSSV/capacity theo mã bên dưới.
-
-## 7. Giảng viên
-
-`LecturerSearchQuery`: `keyword` tìm mã hoặc tên; `lecturerCode`, `fullName` tìm chứa chuỗi, trim và không phân biệt hoa/thường; `facultyId` lọc khoa chưa soft delete; `status=ACTIVE|INACTIVE`; page/size mặc định. Các filter AND, sort `id ASC`.
-
-| Endpoint | Luồng chạy |
-|---|---|
-| L01 | `LecturerController.search → LecturerApplicationService.search → LecturerRepository` Specification → map khoa và `LecturerResponse`. Sai status/page/size → 400/1001. |
-| L02 | `LecturerApplicationService.findById → LecturerRepository.findByIdAndDeletedFalse`; thiếu → 404/4102. |
-| L03 | `LecturerCreationService.create → IdentityFacade.requireAcademicAdmin → FacultyRepository + LecturerRepository + LecturerCodeGenerator + IdentityFacade`: kiểm tra trùng email/CCCD, khoa ACTIVE/chưa xóa, sinh mã `GV` + 6 số bằng PostgreSQL sequence, tạo User LECTURER + Lecturer ACTIVE + audit trong transaction. Commit xong gửi mail và ghi trạng thái; trả `CreateLecturerResponse`. |
-| L04 | `LecturerCreationService.resend/notifyAccount`: kiểm tra ACADEMIC, hồ sơ/user, trạng thái account và mật khẩu ban đầu còn hợp lệ, gửi mail, cập nhật notification/audit; không reset mật khẩu hay tạo lại tài khoản. |
-
-`CreateLecturerRequest`:
-
-| Field | Bắt buộc / quy tắc |
-|---|---|
-| `fullName` | Có, không blank, tối đa 255 |
-| `dateOfBirth` | **Có**, ngày quá khứ (khác tạo sinh viên) |
-| `email` | Có, email hợp lệ, tối đa 255; trim/lowercase |
-| `facultyId` | Có; khoa phải tồn tại, active, chưa xóa |
-| `reason` | Có, không blank, tối đa 500 |
-| `phone`, `citizenId` | Tùy chọn, tối đa 255; phone trim, CCCD bỏ khoảng trắng |
-
-Không nhận `lecturerCode`, `username` hay password từ FE. Mật khẩu khởi tạo hiện `12345`, first login=true. Trùng tên+ngày sinh chỉ warning. Trùng email → 409/4117, CCCD → 409/4118, khoa không hoạt động → 400/4116, hết dải mã → 409/4119. **Chưa có PUT/PATCH giảng viên, API hồ sơ giảng viên hiện tại hoặc khóa/xóa giảng viên.**
-
-Trạng thái gửi lại có thể `FAILED` với `ACCOUNT_NOT_AVAILABLE`, `INITIAL_PASSWORD_NO_LONGER_VALID`, `ACCOUNT_ALREADY_ACTIVATED`, `ACCOUNT_EMAIL_MISSING`, `EMAIL_SEND_FAILED`. Đây là `notificationError`, không phải `ApiResponse.code`.
-
-## 8. Học phần và môn tiên quyết
-
-### 8.1. Query / request
-
-`SubjectSearchQuery`: `keyword` tìm mã hoặc tên; `subjectCode`, `subjectName` tìm chứa chuỗi, không phân biệt hoa/thường, có trim; `credits` là số nguyên >=1, so sánh chính xác; `status=ACTIVE|INACTIVE`; `withoutPrerequisites=true` chỉ lấy môn chưa có tiên quyết chưa xóa, false/mặc định không lọc; page/size như chung. Filter AND, sort `id ASC`.
-
-| DTO | Ràng buộc |
-|---|---|
-| `CreateSubjectRequest` | `subjectCode`, `subjectName` không blank; `credits` bắt buộc số nguyên **1..5**; `description` tùy chọn |
-| `UpdateSubjectRequest` | `subjectName` và `credits` bắt buộc như tạo; `subjectCode` bỏ field hoặc phải đúng mã cũ; `description` tùy chọn, bỏ field/null sẽ xóa mô tả |
-| `SubjectActionRequest` | `reason` không blank và **`confirmed=true`**; dùng cho cả deactivate và DELETE |
-| `SetPrerequisiteRequest` | `prerequisiteSubjectIds` bắt buộc, không null; mỗi ID non-null và dương; `[]` hợp lệ để gỡ hết |
-
-### 8.2. Luồng từng endpoint
-
-| Endpoint | Luồng chạy và hành vi |
-|---|---|
-| C01 | `SubjectController.searchSubjects → SubjectApplicationService.searchSubjects → SubjectRepository + SubjectSpecification → SubjectPrerequisiteRepository`: lấy trang môn chưa soft delete rồi bổ sung hai danh sách quan hệ. |
-| C02 | `getSubjectById → SubjectRepository.findByIdAndDeletedFalse → SubjectPrerequisiteRepository`; thiếu → 404/4201. |
-| C03 | `createSubject → kiểm tra mã/tên trùng → SubjectRepository.save` vào `subjects`, trạng thái ACTIVE, `prerequisites=[]`, `requiredBy=[]`. Trả 201. Kiểm tra trùng mã/tên hiện theo giá trị chính xác, chưa chuẩn hóa trim/hoa thường, tính cả bản soft delete; lỗi 409/4205 hoặc 4206. |
-| C04 | `updateSubject → tìm môn → kiểm tra ACTIVE → mã không đổi → tên không trùng → save`. Môn INACTIVE → 409/4207; đổi mã → 409/4208. |
-| C05 | `deactivateSubject → getSubjectForAction`: yêu cầu confirmed, kiểm tra các môn ACTIVE đang lấy nó làm tiên quyết; nếu không bị dùng thì đổi status=INACTIVE, giữ bản ghi và liên kết. |
-| C06 | `deleteSubject → getSubjectForAction` cùng kiểm tra như C05; đặt `deleted=true` (**soft delete**), trả success không data. **Gửi reason/confirmed trong body của DELETE**. |
-| C07 | `setPrerequisites → khóa đồ thị môn chưa xóa → kiểm tra môn đích/tiên quyết ACTIVE, không tự trỏ → DFS phát hiện chu trình → cập nhật link trong subject_prerequisites → map response`. Thay thế toàn bộ danh sách hiện tại; ID trùng được bỏ qua; link bị gỡ là soft delete; không hồi tố dữ liệu đã có. |
-
-**Ý nghĩa response:** `prerequisites` = các môn phải học trước môn đang xem; `requiredBy` = các môn đang cần môn đang xem làm tiên quyết. Không đảo hai chiều này khi vẽ UI.
-
-**Luồng xác nhận:** hiển thị modal nhập lý do → chỉ khi người dùng xác nhận mới gửi `confirmed:true`. `confirmed=false`/bỏ field → 400/4209. Có môn ACTIVE phụ thuộc → 409/4204, `errors[].field="requiredBy"`, `errors[].message` là mã+tên môn để FE hiển thị. Người dùng cần gỡ ràng buộc ở môn phụ thuộc bằng C07 trước.
-
-Ví dụ thay toàn bộ tiên quyết:
-
-```json
-{ "prerequisiteSubjectIds": [12, 15] }
-```
-
-Chu trình → 400/4203, message chứa chuỗi như `A → B → A`; tự chọn chính mình → 400/4210; môn tiên quyết INACTIVE → 400/4211. Không gửi null để gỡ; dùng `[]`.
-
-**Giới hạn BE:** C04/C06 chưa hoàn tất kiểm tra liên quan lớp học phần/điểm qua facade. C05/C06 chỉ chặn các môn phụ thuộc đang ACTIVE theo logic hiện tại. Không coi việc xóa/ngừng môn đã được bảo vệ toàn bộ dữ liệu học vụ.
-
-## 9. Kỳ học
-
-### 9.1. DTO và quy tắc
-
-`SemesterSearchQuery`: `keyword` chứa mã/tên kỳ, trim, không phân biệt hoa/thường; `status=UPCOMING|ONGOING|ENDED`; page/size như chung. Sort **startDate DESC, id DESC**.
-
-`CreateSemesterRequest` và `UpdateSemesterRequest` đều cần đầy đủ:
-
-```json
+~~~json
 {
-  "semesterName": "Học kì 1 năm học 2027-2028",
-  "startDate": "2027-09-01",
-  "endDate": "2028-01-15",
-  "registrationStart": "2027-08-01",
-  "registrationEnd": "2027-08-20"
+  "fullName": "Nguyễn Văn An",
+  "phone": "0907654321",
+  "targetGpa": 3.2,
+  "academicWarningStatus": "CANH_BAO",
+  "academicWarningReason": "Cần kiểm tra tiến độ học",
+  "statusReason": "Điều chỉnh thông tin hồ sơ"
 }
-```
+~~~
 
-- **Đúng chính tả `Học kì`, không phải `Học kỳ`.** Service trim hai đầu; mẫu `Học kì <số nguyên dương> năm học <YYYY>-<YYYY+1>`. Không gửi `semesterCode`, BE sinh `HK_1_2027_2028`.
-- Bốn ngày là bắt buộc; thứ tự nghiêm ngặt **registrationStart < registrationEnd < startDate < endDate**.
-- Không trùng tên; kỳ soft delete vẫn có thể giữ ràng buộc tên/code. Không chồng khoảng học với kỳ chưa xóa khác; không chồng khoảng đăng ký với khoảng đăng ký khác. **Chạm ngày biên cũng là chồng lấn**.
-- `UpdateSemesterRequest` có thêm `confirmDateChange?: boolean`, mặc định false; **PUT không phải cập nhật từng field**, gửi lại cả 5 field thông tin kỳ.
-- Trạng thái động theo ngày VN: trước start → UPCOMING; từ start đến hết end → ONGOING; sau end → ENDED. `status` không phải field FE gửi để đổi trạng thái.
+`CANH_BAO` chỉ là ví dụ chuỗi, không phải enum đã được BE chuẩn hóa.
 
-### 9.2. Luồng endpoint
+- **Không gửi `studentCode`, kể cả gửi lại mã hiện tại:** mọi giá trị khác null đều trả `400/1001`.
+- Các field nhận: fullName, dateOfBirth, email, phone, citizenId, administrativeClassId, targetGpa, academicWarningStatus, academicWarningReason, statusReason. dateOfBirth phải quá khứ; email phải hợp lệ; administrativeClassId >0; targetGpa >=0.
+- Bỏ field hoặc gửi null thông thường nghĩa là giữ nguyên. Muốn xóa điện thoại bằng null hãy dùng PATCH hồ sơ cá nhân nếu đúng ngữ cảnh.
+- Gửi `academicWarningStatus=""`/blank để gỡ cả trạng thái và lý do. Đổi trạng thái làm xóa lý do cũ nếu không cung cấp lý do mới. Gửi lý do không rỗng khi không có trạng thái bị từ chối.
+- `statusReason` hiện chỉ ghi log, không lưu vào hồ sơ, không đổi `activityStatus`.
+- **Giới hạn hiện tại:** luồng PUT chưa có kiểm tra quyền quản trị riêng; chưa kiểm tra đầy đủ trùng email/CCCD, sức chứa lớp mới, đồng bộ email User hoặc sinh lại MSSV khi đổi lớp. DTO `targetGpa` quản trị chưa có max=4. Không suy rằng các ràng buộc của POST đã áp dụng cho PUT.
 
-| Endpoint | Luồng chạy và hành vi |
+### 4.5. Hồ sơ cá nhân sinh viên
+
+**13 — GET /me:** lấy User từ token → bắt buộc role STUDENT → tìm Student qua `user_id` → trả `StudentResponse`. Không có hồ sơ tương ứng trả `404/4101`; khác role trả `403/4001`.
+
+**14 — PATCH /me:** chỉ cho hai key:
+
+~~~json
+{
+  "targetGpa": 3.5,
+  "phone": "0901234567"
+}
+~~~
+
+- targetGpa: 0–4; phone tối đa 255 ký tự, trim.
+- **Không có field:** giữ nguyên; **null:** xóa giá trị. `{}` hợp lệ và không thay đổi.
+- Có thể xóa cả hai bằng `{"targetGpa":null,"phone":null}`.
+- Key lạ như `email`, `studentCode`, `userId`, `activityStatus`, `targetGpaPresent` đều trả `400/1001`, kể cả giá trị null.
+- Service khóa hồ sơ của User hiện tại, lưu thay đổi và audit nếu giá trị thay đổi. Không cho chọn sửa hồ sơ người khác bằng path/query/body.
+
+## 5. Import nhập học Excel
+
+Nguồn: [StudentAdmissionService](../src/main/java/com/eduhub/edu_hub/people/application/StudentAdmissionService.java), [parser Excel](../src/main/java/com/eduhub/edu_hub/people/application/admission/StudentAdmissionSpreadsheetParser.java), [AdmissionPreviewStore](../src/main/java/com/eduhub/edu_hub/people/application/admission/AdmissionPreviewStore.java).
+
+| STT | Method | URL | Request | Data | HTTP | Quyền thực tế |
+|---|---|---|---|---|---|---|
+| 15 | POST | `/api/v1/students/admission/preview` | Multipart `file` | `AdmissionPreviewResponse` | 200 | Token hợp lệ; chưa kiểm tra role riêng |
+| 16 | PUT | `/api/v1/students/admission/{batchId}/assignment` | `AdmissionClassAdjustmentRequest` | `AdmissionPreviewResponse` | 200 | Token hợp lệ; chưa kiểm tra role riêng |
+| 17 | POST | `/api/v1/students/admission/{batchId}/confirm` | `AdmissionConfirmRequest` | `AdmissionConfirmResponse` | 200 | Token hợp lệ; chưa kiểm tra role riêng |
+
+### 5.1. Preview
+
+**15 — Chỉ nhận file `.xlsx` không rỗng; đọc sheet đầu tiên.** Không phải endpoint `/students/batch-import` trong đặc tả cũ. Request không có majorId/cohortId bên ngoài: thông tin ngành/khóa/hệ nằm trong từng dòng Excel.
+
+File phải có đủ 9 header sau, parser trim và không phân biệt hoa/thường; không phụ thuộc thứ tự cột:
+
+| Header | Dữ liệu |
 |---|---|
-| S01 | `SemesterController.searchSemesters → SemesterApplicationService.searchSemesters → SemesterRepository + SemesterSpecification → map status bằng Clock VN`; rỗng vẫn 200. |
-| S02 | `getSemesterById → findByIdAndDeletedFalse → map response`; thiếu → 404/4305. |
-| S03 | `createSemester → chuẩn hóa tên/sinh mã → validate ngày → kiểm tra trùng/chồng lấn → SemesterRepository.saveAndFlush`; DB constraint là lớp kiểm tra bổ sung. Trả 201. |
-| S04 | `updateSemester → khóa kỳ → nếu đã kết thúc thì chặn → validate tên/ngày/trùng/chồng lấn → kiểm tra đổi ngày học khi có lớp → saveAndFlush`. Đã kết thúc → 409/4312. Thay startDate/endDate khi có lớp chưa CANCELLED và chưa xác nhận → **409/4320**; sau khi người dùng xác nhận, gửi lại cùng body + `confirmDateChange:true`. |
+| ma_ho_so | Mã hồ sơ tuyển sinh, không phải MSSV |
+| ho_ten | Họ tên |
+| ngay_sinh | Excel date hoặc chuỗi dd/MM/yyyy |
+| gioi_tinh | Chuỗi không rỗng, chưa giới hạn enum |
+| email | Email hợp lệ |
+| diem_xet_tuyen | Số không âm; parser hỗ trợ dấu phẩy thập phân |
+| ma_nganh | Mã ngành catalog, ví dụ CNTT, không phải CT |
+| ma_khoa | Mã khóa, ví dụ CT8 |
+| he_dao_tao | CHINH_QUY/LIEN_THONG/VAN_BANG_2 |
 
-Lỗi chồng lấn 4310/4311 có thể kèm `errors` với field `studyPeriod` hoặc `registrationPeriod`, message liệt kê kỳ xung đột. FE hiện rõ thay vì chỉ báo “dữ liệu sai”.
+Tất cả cột trên đều bắt buộc có dữ liệu trên dòng import. Một file chỉ chứa **một ngành, một khóa, một hệ**. Kiểm tra mã hồ sơ/email trùng trong file hoặc hồ sơ chưa xóa trong DB, ngành tồn tại và có lớp phù hợp. Dòng thiếu/sai hoặc không còn chỗ xếp lớp bị đưa vào danh sách lỗi, không nằm trong tập sẽ confirm.
 
-**Phân biệt cờ khóa:** `isLocked` và `lockedGrade` chỉ được trả ở response, chưa có API đổi chúng. S04 hiện **chỉ chặn kỳ đã kết thúc, chưa chặn bằng `isLocked`**; luồng mở/sửa/hủy lớp ở mục 10 có kiểm tra `isLocked`. Không gán cùng một quy tắc khóa cho mọi API. Kiểm tra lịch đã xếp có còn nằm trong ngày mới khi sửa kỳ vẫn là TODO.
+Luồng phân lớp: lấy lớp phù hợp và SV đang có → xếp ứng viên theo điểm giảm dần, mã hồ sơ làm tiêu chí phụ → chọn lớp còn chỗ, ưu tiên tránh trùng tên, cân sĩ số/điểm → trả preview và giữ batch trong RAM. Chưa tạo User/Student chính thức.
 
-## 10. Lớp học phần
+~~~json
+{
+  "batchId": "123e4567-e89b-42d3-a456-426614174000",
+  "fileName": "admission.xlsx",
+  "totalRows": 20,
+  "validRows": 19,
+  "invalidRows": 2,
+  "classes": [],
+  "errors": [
+    {"rowNumber": 3, "applicationCode": "HS002", "field": "email", "reason": "Email sai định dạng"},
+    {"rowNumber": 3, "applicationCode": "HS002", "field": "ma_ho_so", "reason": "Trùng mã hồ sơ trong file"}
+  ],
+  "duplicateNameWarnings": [],
+  "capacityWarnings": []
+}
+~~~
 
-### 10.1. Tìm kiếm, xem và gợi ý môn
+Ví dụ rút gọn phần data, `classes` được lược nội dung. **19 dòng hợp lệ + 2 lỗi vẫn có thể xuất phát từ 20 dòng** vì một dòng có nhiều lỗi.
 
-`ModuleClassSearchQuery`: `keyword` tìm **mã lớp học phần**, không tìm tên môn/tên giảng viên; `semesterId`, `subjectId`, `lecturerId` nếu có phải số dương; `status=UNSCHEDULED|SCHEDULED|OPEN|CANCELLED`; page/size như chung. Filter AND, loại soft delete, sort **id DESC**.
+`classes[]` gồm `classId, className, currentSize, projectedSize, minCapacity, maxCapacity, projectedAverageEntranceScore, students[]`. `students[]` chỉ là ứng viên mới trong batch, không phải toàn bộ SV cũ của lớp. Mỗi ứng viên có `rowNumber, applicationCode, fullName, dateOfBirth, gender, email, entranceScore, majorCode, cohortCode, trainingType, assignedClassId, assignedClassName`.
 
-| Endpoint | Luồng chạy |
+**HTTP 200 preview chưa đồng nghĩa file hợp lệ.** Phải đọc `data.errors`, `validRows` và các warnings. Đây là lỗi của file nằm trong data, khác `body.errors` của HTTP lỗi chung. Lỗi cấu trúc header cũng có thể trả preview 200 chứa lỗi field=file.
+
+### 5.2. Chỉnh phân lớp
+
+**16 — Mỗi lần chuyển một hồ sơ:**
+
+~~~json
+{
+  "applicationCode": "HS001",
+  "targetClassId": 2
+}
+~~~
+
+`targetClassId` phải lấy từ `preview.classes[].classId` của chính batch. Service tìm ứng viên trong batch, kiểm tra lớp đích chưa đầy, cập nhật phân công, tính lại cảnh báo và trả **toàn bộ preview mới**. FE thay state bằng response mới, không chỉ sửa số đếm tại client.
+
+Batch không tồn tại/mất sau restart trả `404/4106`; batch đã confirm trả `409/4107`; lớp đầy trả `400/4105`. Chưa có API GET để lấy lại preview theo batchId. FE phải giữ preview hiện tại trong phiên thao tác và upload lại nếu batch mất.
+
+### 5.3. Confirm
+
+**17 — Luôn gửi JSON object, tối thiểu `{}` nếu không chấp nhận cảnh báo.** Khi có cảnh báo, chỉ gửi true sau khi người dùng xác nhận:
+
+~~~json
+{
+  "actor": "ten-nguoi-thao-tac",
+  "acceptMinimumCapacityWarning": true
+}
+~~~
+
+`actor` hiện là chuỗi FE gửi vào audit, chưa được service suy từ token; không dùng field này để coi là bằng chứng quyền hoặc danh tính đã xác minh.
+
+Luồng: kiểm tra batch còn mở/cảnh báo → khóa các lớp được phân theo ID → cấp MSSV → kiểm tra trùng mã → tạo User STUDENT first-login và hồ sơ cho **các ứng viên hợp lệ trong preview** → gửi email từng tài khoản → đánh dấu batch confirmed và ghi audit.
+
+- `acceptMinimumCapacityWarning` mặc định false; còn capacityWarnings mà chưa chấp nhận trả `409/4108`, không tự chuyển true trong HTTP interceptor.
+- **Confirm không có điều kiện “invalidRows phải bằng 0”.** FE cần cho người dùng thấy rõ số dòng được tạo và số bị bỏ; nếu yêu cầu nhập đủ toàn bộ thì sửa file/upload lại trước confirm.
+- Response `{batchId, createdStudents, createdUsers, emailFailures}`. `emailFailures` chứa **applicationCode**, không phải email/MSSV. Email lỗi không nhất thiết làm rollback việc tạo hồ sơ.
+- Tắt nút confirm trong lúc đang gửi; không tự retry thao tác tạo batch/confirm nếu chưa biết trạng thái request trước.
+- Batch chỉ lưu trong RAM, chưa gắn owner/TTL và chưa có API khôi phục. Luồng này chưa kiểm chứng lại đầy đủ sức chứa khi sĩ số thay đổi giữa preview/confirm, cũng chưa bảo đảm cơ chế chống confirm đồng thời dựa trên transaction commit. Đây là giới hạn BE cần hoàn thiện khi tích hợp nhiều người dùng.
+
+File mẫu có sẵn: [Danh_sach_trung_tuyen_CT8_20SV_CNTT.xlsx](../postman/Danh_sach_trung_tuyen_CT8_20SV_CNTT.xlsx). Kiểm tra ID/lớp và mã danh mục thực tế trước khi demo.
+
+## 6. Giảng viên
+
+Nguồn: [LecturerController](../src/main/java/com/eduhub/edu_hub/people/api/LecturerController.java), [LecturerApplicationService](../src/main/java/com/eduhub/edu_hub/people/application/LecturerApplicationService.java), [LecturerCreationService](../src/main/java/com/eduhub/edu_hub/people/application/LecturerCreationService.java).
+
+| STT | Method | URL | Request | Data | HTTP | Quyền thực tế |
+|---|---|---|---|---|---|---|
+| 18 | GET | `/api/v1/lecturers` | Query `LecturerSearchRequest` + page/size | `PageResponse<LecturerResponse>` | 200 | Token hợp lệ |
+| 19 | GET | `/api/v1/lecturers/{id}` | Không body | `LecturerResponse` | 200 | Token hợp lệ |
+| 20 | POST | `/api/v1/lecturers` | `CreateLecturerRequest` | `CreateLecturerResponse` | **200** | ACADEMIC_ADMIN hoặc SYSTEM_ADMIN |
+| 21 | POST | `/api/v1/lecturers/{id}/account-notification/resend` | Không body | `LecturerNotificationResponse` | 200 | ACADEMIC_ADMIN hoặc SYSTEM_ADMIN |
+
+**18 — Search:** keyword (mã/họ tên), lecturerCode, fullName, facultyId, status, page, size. Keyword/mã/tên tìm chuỗi con, trim/không phân biệt hoa thường. status=ACTIVE/INACTIVE; sắp ID tăng dần, bỏ lecturer đã xóa. Lọc facultyId còn yêu cầu khoa chưa xóa.
+
+**19 — Detail:** đọc Lecturer + Faculty, map DTO; không thấy/đã xóa trả `404/4102`. DTO: `id, lecturerCode, fullName, email, phone, dateOfBirth, citizenId, facultyId, accountNotificationStatus, accountNotificationError, facultyName, status`. Khoa đã xóa có thể khiến `facultyName=null`. Không có `userId` trong response.
+
+**20 — Create:**
+
+~~~json
+{
+  "fullName": "Trần Thị Bình",
+  "dateOfBirth": "1990-04-15",
+  "email": "binh@example.com",
+  "phone": "0901234567",
+  "citizenId": "012345678902",
+  "facultyId": 1,
+  "reason": "Bổ sung giảng viên mới"
+}
+~~~
+
+Bắt buộc fullName/email (không blank, <=255), dateOfBirth (ngày quá khứ), facultyId, reason (không blank, <=500). phone/citizenId tùy chọn <=255. Email trim/lowercase; CCCD bỏ khoảng trắng. Khoa phải active/chưa xóa; trùng email/CCCD bị từ chối, trùng tên + ngày sinh chỉ cảnh báo.
+
+Luồng: kiểm tra role → kiểm tra trùng/khoa → cấp mã `GV000001` qua sequence DB (không tự suy số kế tiếp ở FE) → tạo User LECTURER + hồ sơ ACTIVE + audit trong transaction → commit → gửi email → cập nhật notification. Response `{lecturer, warnings, notificationStatus, notificationError}`. **Không nhận lecturerCode/password/User ID do FE đặt.**
+
+**21 — Resend:** gửi lại thông báo cho tài khoản đã tạo, không reset password. Có thể trả FAILED với `ACCOUNT_NOT_AVAILABLE`, `INITIAL_PASSWORD_NO_LONGER_VALID`, `ACCOUNT_ALREADY_ACTIVATED`, `ACCOUNT_EMAIL_MISSING` hoặc `EMAIL_SEND_FAILED`. FE giữ hồ sơ và hiển thị kết quả gửi. Không có PUT/PATCH/DELETE giảng viên trong source hiện tại.
+
+## 7. Học phần và tiên quyết
+
+Nguồn: [SubjectController](../src/main/java/com/eduhub/edu_hub/curriculum/api/controller/SubjectController.java), [SubjectApplicationService](../src/main/java/com/eduhub/edu_hub/curriculum/application/SubjectApplicationService.java), [CurriculumExceptionHandler](../src/main/java/com/eduhub/edu_hub/curriculum/api/exception/CurriculumExceptionHandler.java).
+
+| STT | Method | URL | Request | Data | HTTP | Quyền thực tế |
+|---|---|---|---|---|---|---|
+| 22 | GET | `/api/v1/subjects` | Query `SubjectSearchRequest` | `PageResponse<SubjectResponse>` | 200 | Token hợp lệ |
+| 23 | GET | `/api/v1/subjects/{id}` | Không body | `SubjectResponse` | 200 | Token hợp lệ |
+| 24 | POST | `/api/v1/subjects` | `CreateSubjectRequest` | `SubjectResponse` | 201 | Token hợp lệ |
+| 25 | PUT | `/api/v1/subjects/{id}` | `UpdateSubjectRequest` | `SubjectResponse` | 200 | Token hợp lệ |
+| 26 | POST | `/api/v1/subjects/{id}/deactivate` | `SubjectActionRequest` | `SubjectResponse` | 200 | Token hợp lệ |
+| 27 | DELETE | `/api/v1/subjects/{id}` | **Body `SubjectActionRequest`** | Không có | 200 | Token hợp lệ |
+| 28 | POST | `/api/v1/subjects/{id}/prerequisites` | `SetPrerequisiteRequest` | `SubjectResponse` | 200 | Token hợp lệ |
+
+Các API này **chưa có kiểm tra role riêng**, nhưng vẫn qua filter xác thực chung.
+
+### 7.1. Search và response
+
+**22 — Query:** keyword (mã hoặc tên), subjectCode (một phần mã), subjectName (một phần tên), credits (nguyên >=1, khớp chính xác), status (ACTIVE/INACTIVE), withoutPrerequisites (mặc định false), page, size.
+
+`withoutPrerequisites=true` chỉ lấy môn không còn liên kết tiên quyết tới môn chưa xóa; false là không áp dụng tiêu chí này. Tìm chuỗi con, trim/không phân biệt hoa thường, sort ID tăng dần. Service này chưa escape wildcard %/_ trong chuỗi tìm kiếm như room/module-class.
+
+**23 — Detail:** ID chưa xóa; không thấy trả `404/4201`. Đọc hai chiều quan hệ trực tiếp từ `subject_prerequisites`. Response:
+
+~~~json
+{
+  "id": 10,
+  "subjectCode": "CS102",
+  "subjectName": "Lập trình hướng đối tượng",
+  "credits": 3,
+  "description": "Nội dung học phần",
+  "status": "ACTIVE",
+  "prerequisites": [
+    {"id": 1, "subjectCode": "CS101", "subjectName": "Lập trình cơ bản", "credits": 3}
+  ],
+  "requiredBy": []
+}
+~~~
+
+`prerequisites` là các môn phải học trước môn đang xem; `requiredBy` là các môn cần môn đang xem làm tiên quyết. Chỉ là quan hệ **trực tiếp**, không phải toàn bộ chuỗi tổ tiên. Môn INACTIVE vẫn có thể xuất hiện trong quan hệ đọc nếu chưa xóa mềm.
+
+### 7.2. Tạo và sửa
+
+**24 — POST:**
+
+~~~json
+{
+  "subjectCode": "FE_DEMO_101",
+  "subjectName": "Học phần demo",
+  "credits": 3,
+  "description": "Mô tả tùy chọn"
+}
+~~~
+
+Mã/tên không blank, credits nguyên 1–5. Service kiểm tra trùng mã/tên → tạo ACTIVE, hai danh sách quan hệ rỗng → lưu DB → map DTO. Trùng trả `409/4205` hoặc `409/4206`. So trùng chính xác, chưa chuẩn hóa trim/hoa thường khi tạo; unique DB bao gồm bản ghi đã xóa. Chưa có handler riêng cho tình huống trùng do ghi đồng thời của module này, nên FE vẫn cần xử lý lỗi 500 chung.
+
+**25 — PUT:** bắt buộc subjectName và credits 1–5; description tùy chọn.
+
+~~~json
+{
+  "subjectName": "Học phần demo cập nhật",
+  "credits": 4,
+  "description": null
+}
+~~~
+
+Service yêu cầu môn ACTIVE/chưa xóa, giữ ID/mã/trạng thái/quan hệ, kiểm tra trùng tên loại trừ chính ID rồi lưu. **Bỏ hoặc null description sẽ xóa mô tả cũ.** Có thể bỏ subjectCode; nếu gửi thì phải bằng mã hiện tại, khác trả `409/4208`. Môn INACTIVE trả `409/4207`.
+
+**Giới hạn BE:** sửa tín chỉ chưa kiểm tra đã có điểm/lớp đang mở; không quảng bá ràng buộc đó là đã được bảo đảm.
+
+### 7.3. Ngừng dùng và xóa mềm
+
+**26/27 — Cả hai cần body:**
+
+~~~json
+{
+  "reason": "Không còn sử dụng trong chương trình mới",
+  "confirmed": true
+}
+~~~
+
+reason không blank; **confirmed phải true**, thiếu/false trả `400/4209`. Luồng: xác nhận → tìm môn chưa xóa → tìm môn ACTIVE còn cần nó làm tiên quyết → nếu có thì `409/4204` kèm `errors[].field="requiredBy"` và mã/tên môn phụ thuộc → nếu không thì đổi trạng thái/xóa mềm.
+
+Ngừng dùng đổi status=INACTIVE và vẫn xem được. Xóa đặt deleted=true, không xóa vật lý hoặc dây chuyền dữ liệu lịch sử; GET sau đó trả 404. Không có endpoint activate/restore học phần.
+
+**Giới hạn BE:** chưa chặn xóa dựa trên toàn bộ lớp đã mở/điểm. Luồng mở lớp ở scheduling đã yêu cầu môn ACTIVE/chưa xóa, nhưng không đồng nghĩa chiều xóa/sửa của curriculum đã kiểm tra đầy đủ lịch sử.
+
+### 7.4. Thiết lập tiên quyết
+
+**28 — Request là TOÀN BỘ tập tiên quyết sau khi lưu:**
+
+~~~json
+{
+  "prerequisiteSubjectIds": [1, 2]
+}
+~~~
+
+- ID môn đích nằm trên URL. Không gửi `subjectId` trong body.
+- `[]` gỡ hết; bỏ field/null, phần tử null hoặc ID <=0 là lỗi.
+- Môn đích phải ACTIVE/chưa xóa; các tiên quyết trong danh sách cũng phải ACTIVE/chưa xóa.
+- ID lặp được khử trùng. ID cũ bị bỏ khỏi danh sách được gỡ mềm.
+- Service khóa đồ thị học phần theo ID → kiểm tra tự tham chiếu/chu trình trên trạng thái sau thay đổi → chỉ sau khi hợp lệ mới lưu cạnh và cập nhật DTO.
+- Tự chọn môn đích làm tiên quyết: `400/4210`. Tiên quyết INACTIVE: `400/4211`. Có chu trình: `400/4203`, message có đường đi mã môn.
+- **Thay đổi không hồi tố điểm/đăng ký đã có.** FE nên hiển thị nội dung này trên form xác nhận.
+
+## 8. Kỳ học
+
+Nguồn: [SemesterApplicationService](../src/main/java/com/eduhub/edu_hub/scheduling/application/SemesterApplicationService.java), [SemesterExceptionHandler](../src/main/java/com/eduhub/edu_hub/scheduling/api/exception/SemesterExceptionHandler.java).
+
+| STT | Method | URL | Request | Data | HTTP | Quyền thực tế |
+|---|---|---|---|---|---|---|
+| 29 | GET | `/api/v1/semesters` | Query `SemesterSearchRequest` | `PageResponse<SemesterResponse>` | 200 | Token hợp lệ |
+| 30 | GET | `/api/v1/semesters/{id}` | Không body | `SemesterResponse` | 200 | Token hợp lệ |
+| 31 | POST | `/api/v1/semesters` | `CreateSemesterRequest` | `SemesterResponse` | 201 | Token hợp lệ |
+| 32 | PUT | `/api/v1/semesters/{id}` | `UpdateSemesterRequest` | `SemesterResponse` | 200 | Token hợp lệ |
+
+**29 — Search:** keyword tìm mã/tên, status=UPCOMING/ONGOING/ENDED, page/size. Trim/không phân biệt hoa thường, escape wildcard. Sort `startDate DESC, id DESC`.
+
+**30 — Detail:** đọc kỳ chưa xóa, tính status theo ngày VN. Không thấy `404/4305`.
+
+`SemesterResponse` gồm **`id, semesterCode, semesterName, startDate, endDate, registrationStart, registrationEnd, status, isLocked, lockedGrade`**. Không có `registrationStatus` hoặc boolean “đang mở đăng ký”. UPCOMING/ONGOING/ENDED chỉ nói về **thời gian học**, không nói về đăng ký.
+
+**31/32 — POST và PUT đều cần đủ 5 field chính:**
+
+~~~json
+{
+  "semesterName": "Học kì 1 năm học 2028-2029",
+  "startDate": "2028-08-11",
+  "endDate": "2029-01-05",
+  "registrationStart": "2028-08-01",
+  "registrationEnd": "2028-08-10"
+}
+~~~
+
+Đây là ví dụ cấu trúc; vẫn có thể xung đột nếu DB đã có kỳ cùng thời gian.
+
+- **Tên phải đúng `Học kì <số kỳ dương> năm học YYYY-YYYY`**, dùng chữ `kì`, số kỳ không có 0 ở đầu, hai năm liên tiếp, năm đầu >0. BE trim hai đầu, không tự sửa các phần tên sai.
+- BE sinh mã `HK_1_2028_2029`, đổi tên thì đổi mã theo; không gửi semesterCode/status/isLocked/lockedGrade vào form.
+- Bắt buộc **`registrationStart < registrationEnd < startDate < endDate`**, không cho bằng nhau.
+- Kiểm tra trùng tên và chồng lấn riêng khoảng học/đăng ký với các kỳ chưa xóa. Hai đầu mút tính trong khoảng, chung một ngày cũng xung đột. Các lỗi có thể kèm `errors.field=studyPeriod` hoặc `registrationPeriod`.
+- POST tạo cờ khóa false. PUT giữ cờ khóa; chưa có API đổi cờ.
+- Kỳ ENDED chỉ xem, PUT trả `409/4312` dựa trên endDate đang lưu.
+- UPCOMING: hôm nay trước startDate; ONGOING: startDate <= hôm nay <= endDate; ENDED: hôm nay sau endDate.
+
+**31 — Luồng tạo:** chuẩn hóa tên/kiểm tra ngày → trùng tên/chồng lấn → sinh mã → saveAndFlush → DTO. Unique/exclusion constraint DB tiếp tục chống ghi đồng thời.
+
+**32 — Luồng cập nhật:** khóa hàng kỳ → chặn kỳ kết thúc → kiểm tra dữ liệu mới/trùng/chồng lấn → kiểm tra cần xác nhận đổi ngày → cập nhật và flush.
+
+Nếu đổi **startDate hoặc endDate** của kỳ có bất kỳ lớp khác CANCELLED (kể cả lớp đã soft delete), trả **`409/4320`**. FE hiển thị cảnh báo, sau khi đồng ý gửi lại **đủ request cũ** kèm:
+
+~~~json
+{
+  "semesterName": "Học kì 1 năm học 2028-2029",
+  "startDate": "2028-08-12",
+  "endDate": "2029-01-05",
+  "registrationStart": "2028-08-01",
+  "registrationEnd": "2028-08-10",
+  "confirmDateChange": true
+}
+~~~
+
+Chỉ sửa tên hoặc khoảng đăng ký không yêu cầu cờ này. **Không tự bật cờ trước khi người dùng xác nhận.** Service cập nhật kỳ hiện chưa kiểm tra isLocked như luồng mở/sửa/hủy lớp; chưa kiểm tra lịch đã xếp có nằm trong khoảng ngày mới. Chưa có API xóa kỳ hoặc lock/unlock kỳ.
+
+## 9. Lớp học phần
+
+Nguồn: [ModuleClassController](../src/main/java/com/eduhub/edu_hub/scheduling/api/controller/ModuleClassController.java), [ModuleClassApplicationService](../src/main/java/com/eduhub/edu_hub/scheduling/application/ModuleClassApplicationService.java), [FacadeAcademicPlanningDataSource](../src/main/java/com/eduhub/edu_hub/scheduling/infrastructure/FacadeAcademicPlanningDataSource.java), [FacadeModuleClassEnrollmentQuery](../src/main/java/com/eduhub/edu_hub/scheduling/infrastructure/FacadeModuleClassEnrollmentQuery.java).
+
+| STT | Method | URL | Request | Data | HTTP | Tình trạng |
+|---|---|---|---|---|---|---|
+| 33 | GET | `/api/v1/semesters/{semesterId}/opening-subjects` | Không body | `OpeningSubjectResponse[]` | 200 | Có route; phụ thuộc nguồn lịch sử |
+| 34 | GET | `/api/v1/module-classes` | Query `ModuleClassSearchRequest` | `PageResponse<ModuleClassResponse>` | 200 | Đã có |
+| 35 | GET | `/api/v1/module-classes/{id}` | Không body | `ModuleClassResponse` | 200 | Đã có |
+| 36 | POST | `/api/v1/semesters/{semesterId}/module-classes/batch` | `CreateModuleClassesRequest` | `ModuleClassResponse[]` | 201 | Đã có, không phụ thuộc gợi ý |
+| 37 | PATCH | `/api/v1/module-classes/{id}` | `UpdateModuleClassRequest` | `ModuleClassResponse` | 200 | Đã có |
+| 38 | POST | `/api/v1/module-classes/{id}/cancel` | `CancelModuleClassRequest` | `ModuleClassResponse` | 200 | Có route; thiếu nguồn kiểm tra Enrollment |
+
+Cả sáu API cần token hợp lệ, chưa kiểm tra role riêng.
+
+### 9.1. Gợi ý môn cần mở
+
+**33 — Luồng:** tìm kỳ → chặn kỳ đã kết thúc/isLocked → People lấy SV STUDYING/chưa xóa → Curriculum map ngành–khóa–hệ sang CTĐT → Enrollment lấy lịch sử → tính nhu cầu môn REQUIRED còn hoạt động → đếm lớp chưa hủy đã có trong kỳ → DTO.
+
+**Trạng thái nguồn hiện tại:**
+
+- Runtime đọc People/Curriculum thật qua facade ở mọi profile. **Không còn runtime DEV_FIXTURE**, JSON fixture chỉ nằm trong test.
+- Nếu không có sinh viên cần lập kế hoạch, adapter có thể trả snapshot rỗng và API trả 200/list rỗng.
+- Nếu có SV mà thiếu năm nhập học/mapping CTĐT/lịch sử đầy đủ, hoặc chưa có Enrollment.Planning bean, trả **503/4317**.
+- Thống kê chỉ hỗ trợ mã HK_1/HK_2 và năm liên tiếp; kỳ 3 có thể tạo hợp lệ nhưng không hỗ trợ tính nhu cầu, trả `400/4319` sau khi qua các bước nguồn dữ liệu trước đó.
+
+`OpeningSubjectResponse`: `subjectId, subjectCode, subjectName, credits, onTimeStudentCount, retakeStudentCount, missedStudentCount, expectedStudentCount, recommendedClassCount, existingClassCount, dataSource, historyComplete`.
+
+Công thức kỳ chương trình: `k = 2 × (năm đầu năm học được chọn − năm nhập học) + số kỳ`. Có COMPLETED hoặc REGISTERED trước/đến kỳ đích thì loại; đúng kỳ khi recommendSemester=k; học lại khi khác kỳ và có FAILED; bỏ lỡ khi recommendSemester<k và chưa từng có lần học. DROPPED không được hiểu là chưa từng đăng ký. Bỏ lịch sử sau kỳ đích, khử trùng SV theo môn. Không loại SV chỉ vì chưa có User hoặc quá năm kết thúc dự kiến.
+
+`recommendedClassCount = ceil(expectedStudentCount / 80)`, **chưa trừ sức chứa lớp đã mở**. `existingClassCount` đếm mọi lớp khác CANCELLED, kể cả lớp soft delete. Không dùng thống kê này như kiểm tra đủ điều kiện đăng ký của từng SV.
+
+### 9.2. Search, detail và response
+
+**34 — Query:** keyword (chỉ mã lớp), semesterId, subjectId, lecturerId, status, page, size. Các ID query phải >0, status=UNSCHEDULED/SCHEDULED/OPEN/CANCELLED. Keyword trim/không phân biệt hoa thường/escape wildcard; sort ID giảm dần. Lớp CANCELLED vẫn hiện nếu không lọc status; lớp đã xóa mềm bị loại.
+
+**35 — Detail:** tìm lớp chưa xóa → đọc học phần qua Curriculum, gồm thông tin môn lịch sử → nếu có lecturerId thì lấy tên giảng viên qua People, không lọc mất giảng viên INACTIVE → map DTO. Không thấy `404/4301`.
+
+`ModuleClassResponse` gồm:
+
+| Nhóm | Field |
 |---|---|
-| M01 | `ModuleClassController.findOpeningSubjects → ModuleClassApplicationService.findOpeningSubjects → SemesterRepository → requireOpenSemester → FacadeAcademicPlanningDataSource.snapshot → PeopleFacade.Scheduling + CurriculumFacade.ReferenceData + EnrollmentFacade.Planning → OpeningDemandCalculator + CurriculumFacade.ClassOpening → đếm lớp hiện có`. |
-| M02 | `ModuleClassApplicationService.search → ModuleClassRepository + ModuleClassSpecification → CurriculumFacade.ClassOpening.findSubjectsByIds + PeopleFacade.Scheduling.findLecturersByIds → PageResponse`. Không cần lịch sử học Enrollment. |
-| M03 | `findById → ModuleClassRepository.findByIdAndDeletedFalse → facade bổ sung môn/tên giảng viên`; thiếu → 404/4301. Không cần Enrollment. |
+| ID/liên kết | `id, semesterId, subjectId, lecturerId` |
+| Mã/tên | `moduleClassCode, classSequence, subjectCode, subjectName, credits, lecturerName, semesterCode` |
+| Vận hành | `maxCapacity, currentSize, status, schedules, dataSource` |
 
-**M01 — nguồn dữ liệu và cách dùng kết quả:**
+**`lecturerId/lecturerName` nullable. `schedules` hiện LUÔN được mapper trả `[]`, chưa đọc bảng lịch.** Không dùng `[]` để kết luận DB không có lịch. `dataSource` hiện là `DATABASE`.
 
-- Chỉ kỳ chưa kết thúc và chưa khóa được xem đề xuất; kết thúc → 409/4312, khóa → 400/4302.
-- Chỉ tính sinh viên STUDYING/chưa xóa, phải có ngành, khóa, hệ, năm nhập học; cần mapping CTĐT theo ngành–khóa–hệ và lịch sử học đầy đủ.
-- Chỉ xét môn REQUIRED còn ACTIVE, CTĐT/ngành ACTIVE. `onTimeStudentCount`, `retakeStudentCount`, `missedStudentCount` lần lượt là nhu cầu đúng kỳ, học lại, học chậm/chưa từng học. Mỗi SV được đếm một lần mỗi môn. Logic ưu tiên đúng kỳ trước nhóm FAILED; đã COMPLETED/REGISTERED không tính vào nhu cầu.
-- `expectedStudentCount` = tổng SV thuộc nhu cầu; `recommendedClassCount = ceil(expectedStudentCount / 80)`; `existingClassCount` là số lớp chưa CANCELLED, kể cả lớp đã ẩn. **Số lớp khuyến nghị không tự trừ lớp hiện có**. Hiển thị cả hai để người dùng quyết định số lớp muốn mở thêm.
-- Chỉ hỗ trợ kỳ mã `HK_1_...` hoặc `HK_2_...`. Có thể tạo kỳ số >2 ở S03, nhưng phép tính gợi ý kỳ đó chưa hỗ trợ → 400/4319 nếu đi tới bộ tính.
-- **Hiện chưa có EnrollmentFacade.Planning bean.** Khi có SV cần lập kế hoạch, thiếu lịch sử/mapping dẫn tới 503/4317. Nếu không có SV cần lập kế hoạch, snapshot có thể hợp lệ rỗng và API trả `[]` (với kỳ được bộ tính hỗ trợ). Không cam kết M01 luôn 503 hay luôn 200.
+### 9.3. Mở nhiều lớp trong một lô
 
-`ModuleClassResponse`: `lecturerId/lecturerName` có thể null; tên lấy từ hồ sơ Lecturer, không từ User. `dataSource="DATABASE"`; **`schedules` hiện luôn `[]`**, kể cả lớp lịch sử có status SCHEDULED. Không dùng mảng này để khẳng định hệ thống đã có màn xếp lịch hoàn chỉnh. Xem lớp không bị chặn chỉ vì kỳ đã kết thúc hoặc lớp đã CANCELLED.
+**36 — Request:**
 
-### 10.2. M04: mở nhiều lớp trong một lô
-
-```json
+~~~json
 {
   "subjects": [
     {
-      "subjectId": 12,
+      "subjectId": 1,
       "confirmAdditionalClasses": false,
-      "classes": [{ "maxCapacity": 60 }, {}]
+      "classes": [
+        {"maxCapacity": 80},
+        {"maxCapacity": 50},
+        {}
+      ]
     }
   ]
 }
-```
+~~~
 
-**Đây là cấu trúc lồng `subjects → classes`, không phải một mảng class phẳng.**
+Ví dụ này tạo 3 lớp cho subjectId=1, sức chứa lần lượt 80/50/80. `semesterId` lấy trên URL.
 
-- `subjects` không rỗng, phần tử không null, `subjectId` dương và không lặp trong lô. `classes` không rỗng, phần tử không null.
-- Mỗi phần tử `classes` tạo một lớp. `maxCapacity` bỏ field thì **mặc định 80**, gửi null bị từ chối; nếu có phải **JSON integer 1..80**. String `"60"`, số thập phân `60.5`/`60.0`, bool đều bị deserializer từ chối 400/1001.
-- `confirmAdditionalClasses` mặc định false, đặt theo **từng môn**. Nếu đã có lớp chưa hủy trong kỳ, API trả 409/4313 và `errors[].field` dạng `subjects[0].subjectId`. FE hiển thị cảnh báo rồi gửi lại với true cho môn được người dùng chấp nhận.
-- Luồng: `createBatch → validate → khóa semester row → kiểm tra kỳ chưa kết thúc/chưa khóa → CurriculumFacade.requireOpenableSubjects (môn ACTIVE, chưa xóa) → đọc lịch sử lớp → kiểm tra xác nhận → cấp STT/mã → saveAllAndFlush` trong một transaction. Mã **`MC_<semesterId>_<subjectCode>_<STT ít nhất 3 chữ số>`**, ví dụ `MC_7_CS101_001`.
-- STT được cấp theo môn trong kỳ, không tái dùng STT/mã của lớp đã CANCELLED hoặc soft delete. Mã do BE cấp; FE không tự tăng số.
-- Lớp tạo mới: `status=UNSCHEDULED`, `currentSize=0`, giảng viên null, lịch `[]`, trả **201 + mảng lớp**. Không nhận lecturerId, roomId, schedules, status hay currentSize trong hợp đồng tạo này.
-- Luồng tạo lớp **không phụ thuộc M01 hay Enrollment**, có thể dùng danh sách `GET /subjects?status=ACTIVE` để chọn thủ công khi gợi ý chưa khả dụng. Một lô lỗi thì không tạo một phần lô; tránh tự retry POST khi chưa rõ request trước đã commit hay chưa.
+- subjects và classes không được rỗng/null, không chứa phần tử null; subjectId >0, mỗi môn xuất hiện **một lần trong lô**.
+- `maxCapacity` chỉ nhận JSON integer 1–80; **bỏ field mặc định 80**, gửi null/chuỗi/boolean/`80.0`/`10.5` bị từ chối. Dữ liệu từ input HTML cần chuyển thành number trước khi stringify.
+- Không nhận/phân công lecturerId/roomId/schedule/status trong DTO này.
+- Service khóa kỳ → chặn kỳ đã qua endDate hoặc isLocked → yêu cầu mọi môn ACTIVE/chưa xóa qua Curriculum → kiểm tra môn đã có lớp → cấp STT/mã → lưu cả lô trong **một transaction**.
+- Kỳ có thể hết thời gian đăng ký của SV mà admin vẫn mở lớp được; điều kiện hiện là chưa kết thúc/chưa khóa.
+- Môn có lớp chưa hủy yêu cầu `confirmAdditionalClasses=true`. Nếu chưa xác nhận, cả lô trả **409/4313**, `errors` chỉ vị trí `subjects[i].subjectId`, **chưa tạo một phần lô**.
+- Sau khi người dùng đồng ý, gửi lại toàn bộ lô với cờ true trên những môn cần mở thêm. Không tự bật cờ khi retry.
+- Mã `MC_<semesterId>_<subjectCode>_<STT tối thiểu 3 chữ số>`, STT lấy cả lịch sử hủy/soft delete, không tái cấp. Mã/STT không do FE tạo.
+- Lớp mới: `UNSCHEDULED`, `currentSize=0`, lecturerId/lecturerName=null, schedules=[].
+- **Có thể mở lớp bằng môn từ `GET /subjects?status=ACTIVE` dù API gợi ý 33 đang 503.** Không bắt buộc gọi thành công gợi ý trước khi POST lô.
 
-### 10.3. M05: đổi sức chứa
+### 9.4. Sửa sức chứa và hủy
 
-```json
-{ "maxCapacity": 60, "reason": "Điều chỉnh theo kế hoạch đào tạo" }
-```
+**37 — PATCH chỉ thay sức chứa:**
 
-`update → validate integer 1..80 + reason không blank → tìm semesterId của lớp → khóa kỳ → requireOpenSemester → khóa lớp → không CANCELLED → kiểm tra >= currentSize → changeCapacity → saveAndFlush → trả ModuleClassResponse`.
+~~~json
+{
+  "maxCapacity": 60,
+  "reason": "Điều chỉnh quy mô lớp"
+}
+~~~
 
-Chỉ đổi sức chứa; không phân công giảng viên/đổi môn/đổi kỳ/xếp lịch ở API này. Sức chứa nhỏ hơn sĩ số → **409/4322**, `errors` cho `maxCapacity` nêu sĩ số hiện có; lớp đã hủy → 409/4321; kỳ đã khóa/kết thúc như trên.
+Cả hai bắt buộc, reason không blank, maxCapacity JSON integer 1–80 và không nhỏ hơn currentSize. Service khóa kỳ rồi lớp → kiểm tra kỳ chưa kết thúc/chưa khóa, lớp chưa CANCELLED → kiểm tra sức chứa → lưu và trả DTO. Mã/môn/kỳ/giảng viên/status giữ nguyên. Nhỏ hơn sĩ số trả `409/4322` kèm field=maxCapacity. **Chưa kiểm tra đầy đủ tương thích với phòng đã xếp khi tăng sức chứa lớp.**
 
-### 10.4. M06: hủy lớp
+**38 — Cancel:**
 
-```json
-{ "reason": "Không đủ điều kiện tổ chức lớp" }
-```
+~~~json
+{
+  "reason": "Không đủ nhu cầu mở lớp"
+}
+~~~
 
-`cancel → reason không blank → khóa kỳ/lớp như M05 → nếu currentSize>0 chặn ngay → EnrollmentFacade.Planning.summarizeModuleClass → kiểm tra lịch sử đầy đủ/không có bất kỳ đăng ký nào → status=CANCELLED → saveAndFlush`.
+Cùng điều kiện kỳ/lớp và thứ tự khóa với PATCH. currentSize >0 bị chặn `409/4323`. Sĩ số 0 vẫn phải kiểm tra nguồn lịch sử đầy đủ xác nhận chưa có **bất kỳ Enrollment** nào, kể cả DROPPED/đã xóa mềm. Có lịch sử trả `409/4323`, có thể kèm `enrollmentCount/studentCount`.
 
-- Có sĩ số >0 hoặc bất kỳ bản ghi đăng ký nào, **kể cả đăng ký đã hủy/ẩn**, thì 409/4323. Có thể có `errors` field `currentSize`, `enrollmentCount`, `studentCount`.
-- Sĩ số=0 **chưa đủ để cho phép hủy**. Thiếu nguồn Enrollment/lịch sử không đầy đủ → **503/4325**. Với source hiện tại chưa có bean Enrollment, lớp rỗng sẽ gặp lỗi này sau các kiểm tra kỳ/lớp.
-- Nếu nguồn đầy đủ và thực sự chưa có đăng ký thì hủy nghiệp vụ, **giữ bản ghi/mã/STT**, không DELETE. Lớp đã CANCELLED gọi lại bị 409/4321, không coi là endpoint idempotent trả success.
-- Ngừng hiệu lực lịch liên quan và đồng bộ Enrollment/currentSize vẫn có TODO; FE không có API mở lại lớp đã hủy.
+**Hiện chưa có implementation Enrollment.Planning nên lớp sĩ số 0 thường trả `503/4325`, không được suy là hủy được.** Khi nguồn đầy đủ và không có lịch sử, chỉ chuyển status=CANCELLED, vẫn xem được, giữ mã/STT và bản ghi. PATCH/cancel lại lớp CANCELLED trả `409/4321`. Chưa có API khôi phục/xóa/chuyển lớp; chưa nối xử lý ngừng hiệu lực lịch trong cùng transaction hủy lớp.
 
-## 11. Mã lỗi và cách FE xử lý
+## 10. Phòng học
 
-Các mã sau được dùng trong luồng endpoint hiện tại hoặc guard liên quan; không phải mọi mã khai báo trong `ErrorCode` đều có URL sử dụng. Mọi endpoint bảo vệ có thể trả 401/4000 trước khi vào controller.
+Nguồn: [RoomApplicationService](../src/main/java/com/eduhub/edu_hub/scheduling/application/RoomApplicationService.java), [RoomScheduleSpecification](../src/main/java/com/eduhub/edu_hub/scheduling/application/specification/RoomScheduleSpecification.java). Tài liệu nghiệp vụ bổ sung: [ROOM_MANAGEMENT.md](ROOM_MANAGEMENT.md).
 
-| HTTP | Code | Ý nghĩa / gợi ý hiển thị FE |
+| STT | Method | URL | Request | Data | HTTP | Quyền thực tế |
+|---|---|---|---|---|---|---|
+| 39 | GET | `/api/v1/rooms` | Query `RoomSearchRequest` | `PageResponse<RoomResponse>` | 200 | Token hợp lệ |
+| 40 | GET | `/api/v1/rooms/{id}` | Không body | `RoomResponse` | 200 | Token hợp lệ |
+| 41 | POST | `/api/v1/rooms` | `CreateRoomRequest` | `RoomResponse` | 201 | Token hợp lệ |
+| 42 | PUT | `/api/v1/rooms/{id}` | `UpdateRoomRequest` | `RoomResponse` | 200 | Token hợp lệ |
+| 43 | PATCH | `/api/v1/rooms/{id}/status` | `ChangeRoomStatusRequest` | `RoomResponse` | 200 | Token hợp lệ |
+| 44 | DELETE | `/api/v1/rooms/{id}` | **Không body** | Không có | 200 | Token hợp lệ |
+
+Chưa kiểm tra role riêng, chưa có audit/log nghiệp vụ phòng theo quyết định MVP hiện tại.
+
+### 10.1. Search/detail
+
+**39 — Query:** keyword, buildingCode, campus, status, minCapacity, page, size. Keyword tìm mã/tên/cơ sở/tòa/số phòng, trim/không phân biệt hoa thường/escape wildcard. campus/buildingCode khớp chính xác sau chuẩn hóa IN HOA. status=ACTIVE/INACTIVE, minCapacity nguyên >=1. Sort campus/buildingCode/roomNumber/id tăng dần, **số phòng sắp theo chuỗi**. Không gửi status thì lấy cả ACTIVE/INACTIVE chưa xóa.
+
+**40 — Detail:** không thấy/đã xóa trả `404/4326`. `RoomResponse` gồm **`id, roomCode, roomName, campus, buildingCode, roomNumber, capacity, status`**. **Không có roomType**.
+
+### 10.2. Tạo/sửa phòng
+
+**41/42 — Request:**
+
+~~~json
+{
+  "roomCode": "102-TA1",
+  "roomName": "Phòng học 102",
+  "campus": "CS1",
+  "buildingCode": "TA1",
+  "roomNumber": "102",
+  "capacity": 100
+}
+~~~
+
+| Field | Bắt buộc | Quy tắc |
 |---|---|---|
-| 500 | 1000 | Lỗi hệ thống/fallback; hiển thị lỗi chung, giữ thông tin request để BE tra |
-| 400 | 1001 | Validation/JSON/enum sai; nếu có `errors`, gắn vào field và vẫn có chỗ hiển thị lỗi tổng |
-| 400 | 1002 | Thiếu query parameter bắt buộc |
-| 405 | 1003 | HTTP method chưa được hỗ trợ; kiểm tra lại method của endpoint |
-| 401 | 4000 | Token/session thiếu, sai, hết hạn hoặc revoke → đưa về login |
-| 403 | 4001 | Thiếu quyền → thông báo quyền, không refresh lặp |
-| 404 | 4002 | User quản trị không tồn tại/đã xóa |
-| 401 | 4003 | Sai username/password hoặc mật khẩu cũ; **không xử lý như 401 token ở màn login/đổi mật khẩu** |
-| 403 | 4004 | Tài khoản bị khóa hoặc khóa tạm |
-| 400 | 4007 | Tài khoản không có email để reset mật khẩu |
-| 502 | 4008 | Gửi email reset thất bại; API reset rollback |
-| 404 | 4101, 4102 | Không thấy hồ sơ sinh viên/giảng viên |
-| 409 | 4103, 4104 | Trùng MSSV/mã giảng viên/username tương ứng |
-| 400 | 4105 | Lớp hành chính không còn sức chứa |
-| 404 | 4106 | Batch nhập học không tồn tại, có thể BE đã restart |
-| 409 | 4107 | Batch đã confirm; không submit lại |
-| 409 | 4108 | Cần xử lý/chấp nhận warning sức chứa của batch |
-| 400 | 4109, 4110, 4111 | Dữ liệu ngành/khóa/lớp không đủ chuẩn sinh MSSV; BE cần kiểm tra cấu hình |
-| 409 | 4112 | STT MSSV của lớp vượt 99 |
-| 409 | 4113, 4114 | Trùng email/CCCD sinh viên |
-| 400 | 4115 | Ngành–khóa–hệ không khớp lớp đã chọn |
-| 400 | 4116 | Khoa không tồn tại hoặc đã ngừng hoạt động |
-| 409 | 4117, 4118 | Trùng email/CCCD giảng viên |
-| 409 | 4119 | Hết dải mã GV 6 số |
-| 400 | 4120 | Guard GPA mục tiêu ngoài 0..4; thông thường validation HTTP đã trả 1001 trước |
-| 404 | 4201 | Học phần không tồn tại |
-| 400 | 4203 | Chu trình tiên quyết; hiển thị chuỗi môn trong message |
-| 409 | 4204 | Môn còn được môn ACTIVE khác dùng làm tiên quyết; hiển thị errors requiredBy |
-| 409 | 4205, 4206 | Trùng mã/tên học phần |
-| 409 | 4207 | Không sửa/thiết lập tiên quyết cho môn INACTIVE |
-| 409 | 4208 | Không đổi mã học phần |
-| 400 | 4209 | Thiếu xác nhận thao tác môn học |
-| 400 | 4210, 4211 | Tự làm tiên quyết / chọn môn tiên quyết không ACTIVE |
-| 404 | 4301, 4305 | Không thấy lớp học phần/kỳ học |
-| 400 | 4302 | Kỳ bị khóa, không thao tác lớp |
-| 409 | 4306 | Tên/mã kỳ học trùng |
-| 400 | 4307 | Tên kỳ không đúng mẫu |
-| 400 | 4308, 4309 | Ngày học/ngày đăng ký không hợp lệ |
-| 409 | 4310, 4311 | Chồng lấn kỳ/khoảng đăng ký; errors có thể chỉ rõ kỳ xung đột |
-| 409 | 4312 | Kỳ đã kết thúc; không sửa kỳ/thao tác lớp |
-| 409 | 4313 | Cần xác nhận mở thêm lớp cho môn đã có lớp |
-| 409 | 4314 | Môn không ACTIVE nên không mở lớp được |
-| 400 | 4316 | Lặp subjectId trong một lô |
-| 503 | 4317 | Chưa đủ nguồn dữ liệu lập kế hoạch, không coi là danh sách rỗng |
-| 409 | 4318 | Mã/STT lớp bị xung đột; tải lại dữ liệu trước thao tác tiếp |
-| 400 | 4319 | Gợi ý môn chưa hỗ trợ kỳ ngoài HK_1/HK_2 |
-| 409 | 4320 | Cần xác nhận thay ngày học của kỳ đã có lớp |
-| 409 | 4321 | Lớp đã CANCELLED, chỉ xem |
-| 409 | 4322 | Sức chứa mới nhỏ hơn sĩ số hiện tại |
-| 409 | 4323 | Đã phát sinh đăng ký/sĩ số, không hủy lớp |
-| 503 | 4325 | Chưa có lịch sử Enrollment đủ để quyết định hủy lớp |
+| roomCode | Có | <=50, dạng `[0-9]+-[A-Za-z0-9]+`, trim/IN HOA |
+| roomName | Có | Không blank, <=255, trim |
+| buildingCode | Có | Không blank, <=50, IN HOA, khớp phần sau dấu - trong mã |
+| campus | Không | <=100; bỏ/null/blank lưu `""`, có giá trị thì trim/IN HOA |
+| roomNumber | Không | <=50; bỏ/null suy phần trước dấu -; có gửi phải không blank và khớp mã |
+| capacity | Có | JSON integer 1–2147483647; **không giới hạn 80 như lớp học phần** |
 
-`errors[].field` có thể là đường dẫn lồng (`subjects[0].subjectId`), field quy ước (`studyPeriod`, `requiredBy`, `request`) hoặc đường dẫn validation method. Luôn có khu vực hiển thị lỗi chung nếu không map được về input. Riêng lỗi nội dung Excel nằm ở **`data.errors[].reason` trong response success**, không cùng cấu trúc `ApiFailure.errors[].message`.
+Sai tòa/số phòng so với mã trả `400/1001` với `errors` tương ứng. Mã phòng unique toàn hệ thống; vị trí (campus, buildingCode, roomNumber) cũng unique; không tái sử dụng mã/vị trí bản ghi đã xóa. Cùng mã phòng ở cơ sở khác vẫn có thể bị trùng mã toàn hệ thống.
 
-## 12. API còn thiếu, chuẩn bị dữ liệu và kiểm chứng
+**41 — Create:** chuẩn hóa/validate → kiểm tra trùng mã/vị trí → lưu ACTIVE bằng saveAndFlush → DTO. Trùng trả `409/4327` hoặc `409/4328`.
 
-### 12.1. Có thể tích hợp ngay / còn phụ thuộc
+**42 — PUT phải gửi đủ field bắt buộc**, giữ ID/status/ngày tạo, sửa được cả phòng INACTIVE. Bỏ campus nghĩa là chuyển về cơ sở chưa khai báo, không phải giữ giá trị cũ. Luồng chuẩn hóa → khóa phòng → kiểm tra trùng → nếu giảm sức chứa thì kiểm tra các lớp bị ảnh hưởng → lưu.
 
-| Màn / nhóm tính năng | Trạng thái theo source |
+### 10.3. Đổi trạng thái/xóa và ràng buộc lịch
+
+**43 — PATCH:** `{"status":"INACTIVE"}` để ngừng dùng, ACTIVE để đưa vào dùng lại. Gửi trạng thái hiện tại thành công, không cập nhật lại timestamp.
+
+**44 — DELETE:** không reason, không confirmed, không body. Khóa phòng → kiểm tra còn lịch đang dùng → đặt deleted=true, giữ Room và FK lịch sử. Response thành công không có data. Gọi GET hoặc DELETE lại bản ghi đã xóa trả 404.
+
+**Hai ràng buộc quan trọng:**
+
+- **A2 — `409/4330`:** chặn INACTIVE/xóa nếu phòng có lịch chưa xóa của lớp chưa xóa/chưa CANCELLED, kỳ chưa xóa và endDate >= hôm nay VN. Ngày cuối kỳ vẫn tính; không chỉ dựa vào ngày kết thúc từng dòng lịch.
+- **A3 — `409/4331`:** khi giảm sức chứa, không được nhỏ hơn **maxCapacity của lớp** trong cùng tập lịch. Không so với currentSize. Bằng maxCapacity được phép.
+
+Lỗi liệt kê lớp ở `errors`:
+
+~~~json
+{
+  "success": false,
+  "code": 4331,
+  "message": "Sức chứa phòng nhỏ hơn sức chứa tối đa của lớp đang xếp",
+  "errors": [
+    {
+      "field": "moduleClasses[20]",
+      "message": "MC_7_CS101_001 — Học kì 1 năm học 2026-2027; sức chứa tối đa: 60"
+    }
+  ],
+  "path": "/api/v1/rooms/5",
+  "timestamp": "2026-11-05T10:30:00"
+}
+~~~
+
+FE hiển thị danh sách lớp xung đột, giữ nguyên form cho người dùng sửa. Không tự giảm sĩ số hoặc xóa lịch để vượt lỗi. Kỳ đã kết thúc không chặn A2/A3; lịch sử vẫn giữ. Bảng/entity lịch và trigger kiểm tra phòng đã có, **chưa có endpoint xếp lịch/thời khóa biểu**.
+
+## 11. Mã lỗi cần xử lý
+
+Nguồn: [ErrorCode](../src/main/java/com/eduhub/edu_hub/shared/exception/ErrorCode.java), [GlobalExceptionHandler](../src/main/java/com/eduhub/edu_hub/shared/exception/GlobalExceptionHandler.java) và handler riêng của từng controller. Bảng chỉ tập trung mã liên quan các endpoint hiện có; enum còn chứa mã cho các module chưa có API.
+
+| HTTP | Code | Trường hợp / FE xử lý |
+|---|---|---|
+| 500 | 1000 | Lỗi hệ thống: hiển thị lỗi chung, không tự lặp thao tác ghi |
+| 400 | 1001 | JSON/query/field không hợp lệ; hiển thị errors theo field nếu có |
+| 400 | 1002 | Thiếu tham số bắt buộc |
+| 405 | 1003 | Sai HTTP method; kiểm tra URL/method, không đổi method để thử ghi |
+| 401 | **4000** | Token thiếu/sai/hết hạn/revoked; xóa phiên FE, yêu cầu login |
+| 403 | 4001 | Không đủ quyền; giữ phiên, hiển thị bị từ chối |
+| 404 | 4002 | Không tìm thấy User |
+| 401 | **4003** | Sai username/password hoặc currentPassword; hiển thị tại form, không áp dụng xử lý hết phiên một cách máy móc |
+| 403 | 4004 | Tài khoản khóa/khóa tạm/DISABLED trong luồng login |
+| 400 | 4007 | Tài khoản chưa có email để reset mật khẩu |
+| 502 | 4008 | Gửi email mật khẩu tạm thất bại, reset rollback |
+| 404 | 4101 / 4102 | Không có Student / Lecturer, hoặc đã xóa |
+| 409 | 4103 / 4104 | Trùng MSSV/username sinh viên hoặc mã/username giảng viên |
+| 400 | 4105 | Lớp hành chính đầy |
+| 404 | 4106 | Batch nhập học không có hoặc BE đã restart |
+| 409 | 4107 | Batch đã confirm |
+| 409 | **4108** | Cần xử lý/chấp nhận capacityWarnings; chỉ gửi cờ true sau xác nhận |
+| 400 | 4109 / 4110 / 4111 | Dữ liệu ngành/khóa/lớp không đáp ứng định dạng sinh MSSV; cần BE sửa danh mục |
+| 409 | 4112 | Hết STT MSSV 01–99 trong lớp |
+| 409 | 4113 / 4114 | Trùng email / CCCD sinh viên |
+| 400 | 4115 | Ngành/khóa/hệ không khớp lớp hành chính |
+| 400 | 4116 | Khoa không có hoặc không active |
+| 409 | 4117 / 4118 | Trùng email / CCCD giảng viên |
+| 409 | 4119 | Hết dải mã GV 6 chữ số |
+| 400 | 4120 | GPA mục tiêu ngoài 0–4 ở kiểm tra service /me; HTTP DTO validation thường trả 1001 |
+| 404 | 4201 | Không có học phần hoặc đã xóa |
+| 400 | 4203 | Chu trình tiên quyết, message có đường đi |
+| 409 | 4204 | Môn còn là tiên quyết của môn ACTIVE; hiển thị errors.requiredBy |
+| 409 | 4205 / 4206 | Trùng mã / tên học phần |
+| 409 | 4207 | Môn đích INACTIVE, không sửa/thiết lập tiên quyết được |
+| 409 | 4208 | Cố thay mã học phần |
+| 400 | 4209 | Chưa confirmed thao tác deactivate/delete học phần |
+| 400 | 4210 / 4211 | Tự làm tiên quyết / tiên quyết không ACTIVE |
+| 404 | 4301 | Không có lớp học phần hoặc đã xóa |
+| 400 | 4302 | Kỳ bị khóa, chặn gợi ý/mở/sửa/hủy lớp |
+| 404 | 4305 | Không có kỳ học hoặc đã xóa |
+| 409 | 4306 | Trùng tên/mã kỳ |
+| 400 | 4307 | Tên kỳ/năm không đúng chuẩn |
+| 400 | 4308 / 4309 | Khoảng học / khoảng đăng ký sai thứ tự |
+| 409 | 4310 / 4311 | Chồng lấn khoảng học / đăng ký; hiển thị kỳ xung đột nếu có |
+| 409 | 4312 | Kỳ đã kết thúc |
+| 409 | **4313** | Môn đã có lớp, cần confirmAdditionalClasses; gửi lại cả lô sau xác nhận |
+| 409 | 4314 | Môn không ACTIVE, không được mở lớp |
+| 400 | 4316 | Một môn bị lặp trong lô |
+| 503 | **4317** | Nguồn lập kế hoạch thiếu/chưa triển khai; hiển thị “chưa đủ dữ liệu”, không giả danh sách rỗng |
+| 409 | 4318 | Trùng mã/STT lớp do constraint; tải lại trước khi người dùng gửi lại |
+| 400 | 4319 | Mã kỳ không hỗ trợ tính nhu cầu HK_1/HK_2 |
+| 409 | **4320** | Có lớp chưa hủy, cần confirmDateChange khi đổi ngày kỳ |
+| 409 | 4321 | Lớp CANCELLED chỉ được xem |
+| 409 | 4322 | maxCapacity mới nhỏ hơn currentSize |
+| 409 | 4323 | Lớp có sĩ số/lịch sử Enrollment, không được hủy |
+| 503 | **4325** | Chưa có nguồn lịch sử theo lớp để xác nhận điều kiện hủy |
+| 404 | 4326 | Không có phòng hoặc đã xóa |
+| 409 | 4327 / 4328 | Trùng mã phòng / vị trí phòng |
+| 400 | 4329 | Sai mẫu roomCode ở kiểm tra service; qua DTO HTTP thường là 1001 |
+| 409 | **4330** | Phòng có lịch trong kỳ chưa kết thúc, không được ngừng dùng/xóa |
+| 409 | **4331** | Giảm sức chứa phòng thấp hơn maxCapacity lớp, hiển thị lớp bị ảnh hưởng |
+
+**4005 (password policy) và 4006 (first-login) có khai báo trong enum nhưng luồng controller hiện tại không trả chúng cho chính sách đổi mật khẩu hoặc chặn mọi API first-login.** Mật khẩu mới không đạt chính sách trả **400/1001 + errors**. Không viết logic FE chỉ chờ 4005/4006.
+
+Không phải mọi lỗi framework/transport đều bảo đảm theo envelope này: lỗi mạng, reverse proxy hoặc một số lỗi multipart trước controller có thể khác. FE cần fallback đọc HTTP status khi không parse được JSON/envelope. Không dùng fallback đó để che lỗi 503 thành thành công.
+
+## 12. Phần chưa có API và thiếu dữ liệu danh mục
+
+### 12.1. Có trong thiết kế/DTO nhưng CHƯA có controller
+
+**Không gọi những URL dưới đây để ghép FE hiện tại.** Có token không có nghĩa route sẽ hoạt động; status khi gọi nhầm còn phụ thuộc mapping/method/framework, không cam kết luôn 404.
+
+| Chức năng | URL/tính năng dự kiến chưa triển khai |
 |---|---|
-| Login/logout/đổi mật khẩu; admin user | Có endpoint và service |
-| Danh sách/chi tiết/tạo sinh viên; sửa hồ sơ quản trị; hồ sơ sinh viên hiện tại | Có endpoint; form chọn danh mục còn thiếu lookup ID |
-| Nhập học Excel preview/đổi phân lớp/confirm | Có endpoint; batch RAM, có các giới hạn ở mục 6 |
-| Danh sách/chi tiết/tạo giảng viên, gửi lại thông báo | Có endpoint; form tạo cần facultyId thật |
-| CRUD học phần đã liệt kê, tiên quyết | Có endpoint; chưa có activate/khôi phục; kiểm tra lớp/điểm khi sửa/xóa còn thiếu |
-| Danh sách/chi tiết/tạo/sửa kỳ học | Có endpoint; chưa có lock/unlock/delete kỳ |
-| Danh sách/chi tiết/mở lô/đổi sức chứa lớp | Có endpoint; độc lập nguồn Enrollment |
-| Gợi ý môn mở lớp | Có URL; phụ thuộc dữ liệu People/Curriculum/Enrollment, có thể 503/4317 |
-| Hủy lớp | Có URL; thiếu implementation Enrollment nên hiện chưa hoàn tất luồng thành công cho lớp rỗng |
-| Phân công giảng viên, phòng học, xếp lịch, thời khóa biểu | **Chưa có REST controller**; schedules response hiện là [] |
-| Đăng ký/rút học phần, danh sách đăng ký, nhập/xem điểm/học vụ | **Chưa có REST controller** cho enrollment/academic |
-| Chat AI, nguồn tri thức, tư vấn tốt nghiệp | **Chưa có REST controller** cho aiassistant |
+| Refresh access token | `POST /api/v1/auth/refresh` |
+| Student activate/deactivate | `/api/v1/students/{id}/activate`, `/deactivate` |
+| Import một bước cũ | `POST /api/v1/students/batch-import`; dùng 3 API admission thực tế |
+| Sửa/xóa giảng viên | PUT/PATCH/DELETE `/api/v1/lecturers/{id}` |
+| Ngành/khoa/khóa/lớp hành chính | Chưa có REST danh mục tương ứng |
+| CTĐT | `GET /api/v1/curriculums`, `GET /api/v1/curriculums/{id}`; hiện mới có facade nội bộ |
+| Phân công giảng viên | Chưa có API phân công; `/api/v1/module-classes/lecturers` cũng chưa triển khai |
+| Tạo một lớp đơn theo thiết kế cũ | Chưa có POST `/api/v1/module-classes`; dùng batch theo kỳ |
+| Xếp lịch | `POST /api/v1/class-schedules` |
+| Thời khóa biểu | `GET /api/v1/timetable/student`, `GET /api/v1/timetable/lecturer` |
+| Đăng ký/hủy đăng ký học phần | `/api/v1/enrollments/register`, `/{id}/drop`, `/my` |
+| Nhập điểm/xem học vụ | `/api/v1/grades/process-score`, `/batch-update`, `/my-summary` |
+| AI/chat/knowledge | `/api/v1/ai/*`, `/api/v1/admin/knowledge*` |
+| Khóa/mở kỳ, công bố lớp, khôi phục lớp | Chưa có endpoint |
+| Khôi phục học phần/phòng đã xóa | Chưa có endpoint |
 
-**Không gọi theo các URL dự kiến trong tài liệu cũ:** `/api/v1/auth/refresh`, `/api/v1/students/batch-import`, `/api/v1/students/{id}/activate`, `/deactivate` của sinh viên, `PUT /api/v1/lecturers/{id}`, REST curriculum/major/room/timetable/enrollment/academic/AI. Không tự gán URL cho facade interface. Chưa có dependency springdoc/OpenAPI trong `pom.xml`; không dựa vào `/swagger-ui` hay `/v3/api-docs` để lấy contract của bản này.
+`TokenResponse`, `LockUserRequest`, `ResetPasswordRequest`, `BatchImportStudentRequest`, `AdministrativeClassResponse`, các DTO CTĐT/Enrollment/Academic/AI hay `CreateClassScheduleRequest` có thể tồn tại trong code nhưng **không tự tạo thành REST endpoint**. Lock User thực tế dùng `LockBody` nội bộ controller, ID ở URL; reset không body.
 
-DTO có trong Java nhưng **chưa nối vào endpoint hiện tại** (không đưa vào contract FE gọi được):
+Actuator là nhóm endpoint hạ tầng do Spring Boot auto-config cung cấp (ví dụ health theo cấu hình môi trường), không phải 44 API nghiệp vụ trong bảng. Không dùng response Actuator như ApiResponse và không đưa vào DTO nghiệp vụ FE. Chưa khai báo springdoc/OpenAPI trong pom hiện tại, không mặc định đã có Swagger `/v3/api-docs`.
 
-- Identity: `LockUserRequest`, `ResetPasswordRequest`, `TokenResponse`. Endpoint lock thật dùng record `LockBody`; reset thật không có body.
-- People: `AdministrativeClassResponse`, `BatchImportStudentRequest`, `StudentPlanningResponse` (nội bộ).
-- Curriculum: `CurriculumAssignmentResponse`, `CurriculumOpeningSubjectResponse`, `CurriculumResponse`, `CurriculumSubjectResponse`, `MajorResponse`, `MajorSimpleResponse` (facade/nội bộ).
-- Scheduling: `CreateClassScheduleRequest`, `TimetableResponse`, `TimetableSlot`. `ClassScheduleResponse` vẫn có trong hợp đồng vì là kiểu phần tử của `ModuleClassResponse.schedules`, dù hiện mảng rỗng.
-- Enrollment: `RegisterModuleClassRequest`, `RegistrationResult`, `EnrollmentResponse`, `LearningAttemptResponse`, `LearningHistoryResponse`, `ModuleClassUsageResponse`.
-- Academic: `UpdateProcessScoreRequest`, `BatchUpdateScoreRequest`, `SemesterGradeResponse`, `StudentAcademicSummaryResponse`.
-- AI: `ChatRequest`, `ChatResponse`, `CitationResponse`, `GraduationScenarioResponse`.
+### 12.2. Lấy ID để dựng form
 
-### 12.2. Chuẩn bị để chạy FE với BE
+**Đây là phần còn thiếu để FE tích hợp form danh mục trọn vẹn.** Tạm thời BE cung cấp danh sách ID/tên hoặc dùng cấu hình dev; về lâu dài cần endpoint danh mục. Các SELECT sau chỉ là truy vấn đọc tham khảo cho người phụ trách BE, **không chạy SQL từ browser**.
 
-1. BE cần Java 21, PostgreSQL, các migration hiện hành, `DBMS_CONNECTION`, `DBMS_USERNAME`, `DBMS_PASSWORD`, `JWT_SECRET` Base64 của tối thiểu 32 byte ngẫu nhiên. `application.yaml` đọc `.env`; **không đưa giá trị secret vào FE/tài liệu chia sẻ**.
-2. Chạy ứng dụng từ `EduHubApplication` hoặc `mvn spring-boot:run`; profile mặc định `dev`. Dev bootstrap chỉ tạo SYSTEM_ADMIN khi có `DEV_ADMIN_USERNAME` + `DEV_ADMIN_PASSWORD`; `DEV_ADMIN_EMAIL` tùy chọn. Nó không reset password của username đã tồn tại. Không mặc định mọi máy đều có cùng tài khoản demo.
-3. Cấu hình FE API origin `http://localhost:8080` (hoặc origin BE triển khai); URL trong file TS đã có `/api/v1`, tránh ghép trùng tiền tố. Đăng nhập trước rồi gắn Bearer.
-4. Để tạo/import người, BE chuẩn bị ngành/khóa/khoa/lớp thật. SMTP dùng `GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD` nếu muốn thử email SENT; nếu mail thất bại, xử lý notification như trên.
-5. SQL dưới đây **chỉ để BE tra cứu ID**, không phải API để FE chạy. Form cần danh mục động thì phải bổ sung REST lookup trước khi hoàn thiện màn chọn.
+Danh sách lớp kèm ngành/khóa/hệ cho form tạo SV:
 
-```sql
-SELECT c.id AS administrative_class_id, c.class_name, c.major_id,
-       m.major_code, m.major_name, c.cohort_id, h.cohort_code,
-       c.training_type, c.min_capacity, c.max_capacity
+~~~sql
+SELECT c.id AS administrative_class_id,
+       c.class_name,
+       c.major_id,
+       m.major_code,
+       m.major_name,
+       c.cohort_id,
+       h.cohort_code,
+       c.training_type,
+       c.min_capacity,
+       c.max_capacity
 FROM administrative_classes c
 JOIN majors m ON m.id = c.major_id
 JOIN cohorts h ON h.id = c.cohort_id
-WHERE NOT c.is_deleted AND NOT m.is_deleted AND NOT h.is_deleted
-ORDER BY m.major_code, h.cohort_code, c.class_name;
+WHERE NOT c.is_deleted
+  AND NOT m.is_deleted
+  AND NOT h.is_deleted
+ORDER BY h.cohort_code, m.major_code, c.class_name;
+~~~
 
+Khoa cho form tạo giảng viên:
+
+~~~sql
 SELECT id, faculty_name
 FROM faculties
 WHERE active AND NOT is_deleted
-ORDER BY id;
-```
+ORDER BY faculty_name;
+~~~
 
-Nếu cần gợi ý mở lớp, còn phải có năm khóa và mapping CTĐT đầy đủ; xem [INTEGRATION.md](INTEGRATION.md). Không dùng fixture test làm dữ liệu runtime và không coi thiếu Enrollment là lịch sử học rỗng.
+Có thể lấy facultyId từ `GET /lecturers` để demo khi đã có dữ liệu giảng viên, nhưng danh sách đó **không thay thế danh mục khoa đầy đủ**. Không suy majorId/cohortId từ index mảng hoặc hard-code ID của database khác.
 
-### 12.3. Ví dụ gọi từ FE bằng fetch
+### 12.3. Dữ liệu dev và chia sẻ file
 
-Ví dụ này dùng file contract kèm theo; đây là lớp gọi mẫu để FE tùy biến cho framework của nhóm:
+Profile mặc định dev; `application-dev.yaml` của workspace hiện có bật `db/migration` + `db/seed`. Seed tạo dữ liệu danh mục và các User test, không bảo đảm ID cố định. Cấu hình dev đang bị ignore bởi Git trong workspace, nên người khác cần kiểm tra cấu hình local thực tế; không chỉ dựa vào mô tả cũ trong FLYWAY.md.
 
-```typescript
-import { ENDPOINTS } from "./FE_API_CONTRACT";
+Nếu đã nạp seed `seed_postman_test_accounts`, có các User test `postman_system_admin`, `postman_academic_admin`, `postman_lecturer`, `postman_student` với mật khẩu mẫu **`Postman@123`**. Seed không ghi đè User đã tồn tại, nên mật khẩu có thể đã được đổi. Đây là tài khoản phát triển, không phải thông tin lấy từ .env.
+
+**Các User seed không tự có hồ sơ People.** Login bằng postman_student có thể thành công nhưng `/students/me` vẫn 404. Muốn test /me: tạo SV qua API/import, dùng MSSV làm username và hoàn thành luồng đổi mật khẩu.
+
+Collections có sẵn trong [postman](../postman): Identity, People, Curriculum, Scheduling. Đối chiếu lại với tài liệu này; collection cũ có thể chưa phản ánh toàn bộ phòng học/trạng thái nguồn mới.
+
+**Thư mục `docs/` hiện nằm trong `.gitignore`.** Hai file bàn giao được lưu local đúng thư mục; muốn đưa riêng chúng vào Git có thể dùng:
+
+~~~powershell
+git add -f docs/FE_API_INTEGRATION.md docs/fe-api-contract.ts
+~~~
+
+Đây là hướng dẫn chia sẻ, không có thao tác stage/commit tự động trong lần tạo tài liệu này.
+
+## 13. Mẫu gọi API và trình tự ghép FE
+
+### 13.1. HTTP helper tham khảo
+
+Copy file TS sang FE, ví dụ `src/api/fe-api-contract.ts`. Kiểu TypeScript giúp kiểm tra lúc viết code, không phải runtime validator. Ví dụ sau dùng fetch, không phụ thuộc Axios và không tự quyết định lưu token vào đâu.
+
+~~~ts
 import type {
-  ApiFailure, ApiResponse, ApiSuccess, LoginResponse,
-  StudentResponse, PageResponse, AdmissionPreviewResponse,
-} from "./FE_API_CONTRACT";
+  ApiError, ApiResponse, ApiSuccess,
+  LoginRequest, LoginResponse,
+  CreateStudentRequest, CreateStudentResponse,
+  AdmissionPreviewResponse, AdmissionConfirmResponse,
+  SubjectActionRequest,
+} from "./fe-api-contract";
+import { API_URLS } from "./fe-api-contract";
 
-const API_ORIGIN = "http://localhost:8080"; // đưa vào cấu hình môi trường của FE.
+const API_ORIGIN = "http://localhost:8080"; // Đưa vào cấu hình môi trường của FE.
 
-class ApiError extends Error {
-  constructor(public status: number, public body: ApiFailure) {
-    super(body.message);
+class ApiRequestError extends Error {
+  readonly status: number;
+  readonly payload: ApiError;
+
+  constructor(status: number, payload: ApiError) {
+    super(payload.message);
+    this.status = status;
+    this.payload = payload;
   }
 }
 
-async function request<T>(
-  endpoint: { method: string; url: string },
-  options: { token?: string; body?: unknown; query?: object } = {},
+type ApiOptions = Omit<RequestInit, "body"> & {
+  token?: string;
+  json?: unknown;
+  form?: FormData;
+};
+
+async function apiRequest<T = void>(
+  path: string,
+  { token, json, form, ...init }: ApiOptions = {},
 ): Promise<ApiSuccess<T>> {
-  const url = new URL(endpoint.url, API_ORIGIN);
-  for (const [key, value] of Object.entries(options.query ?? {})) {
-    if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
+  if (form && json !== undefined) {
+    throw new Error("Chỉ gửi một trong json hoặc form");
   }
-  const headers = new Headers({ Accept: "application/json" });
-  if (options.token) headers.set("Authorization", `Bearer ${options.token}`);
-  const isMultipart = options.body instanceof FormData;
-  const body = options.body === undefined ? undefined
-    : isMultipart ? options.body as FormData : JSON.stringify(options.body);
-  if (body !== undefined && !isMultipart) headers.set("Content-Type", "application/json");
-  const response = await fetch(url, { method: endpoint.method, headers, body });
-  const payload = await response.json() as ApiResponse<T>;
-  if (!payload.success) throw new ApiError(response.status, payload);
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json");
+  if (token) headers.set("Authorization", "Bearer " + token);
+  if (form) {
+    headers.delete("Content-Type"); // Browser tự thêm multipart boundary.
+  } else if (json !== undefined) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const response = await fetch(API_ORIGIN + path, {
+    ...init,
+    headers,
+    body: form ?? (json === undefined ? undefined : JSON.stringify(json)),
+  });
+
+  let payload: ApiResponse<T>;
+  try {
+    payload = await response.json() as ApiResponse<T>;
+  } catch {
+    throw new Error("Không đọc được response JSON; HTTP " + response.status);
+  }
+  if (!payload || typeof payload.success !== "boolean") {
+    throw new Error("Response không đúng ApiResponse; HTTP " + response.status);
+  }
+  if (!payload.success) {
+    throw new ApiRequestError(response.status, payload);
+  }
+  if (!response.ok) {
+    throw new Error("HTTP " + response.status);
+  }
   return payload;
 }
 
-async function integrationExample(username: string, password: string, file: File) {
-  const login = await request<LoginResponse>(ENDPOINTS.authLogin, {
-    body: { username, password },
-  });
-  const { accessToken, refreshToken, requirePasswordChange } = login.data;
-  if (requirePasswordChange) {
-    // Điều hướng màn đổi mật khẩu; đổi thành công phải login lại.
-    return;
+function toQuery(values: object): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(values)) {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, String(value));
+    }
   }
+  const encoded = query.toString();
+  return encoded ? "?" + encoded : "";
+}
 
-  const students = await request<PageResponse<StudentResponse>>(ENDPOINTS.studentsSearch, {
-    token: accessToken, query: { page: 0, size: 20, keyword: "An" },
+// 1. Login: accessToken nằm ở response.data.
+async function login(input: LoginRequest) {
+  const response = await apiRequest<LoginResponse>(API_URLS.auth.login, {
+    method: "POST",
+    json: input,
   });
-  console.log(students.data.content, students.data.last);
+  return response.data;
+}
 
+// 2. Tạo SV: HTTP thành công vẫn phải đọc notificationStatus.
+async function createStudent(token: string, input: CreateStudentRequest) {
+  const response = await apiRequest<CreateStudentResponse>(API_URLS.students.create, {
+    method: "POST",
+    token,
+    json: input,
+  });
+  return response.data; // { student, warnings, notificationStatus, notificationError }
+}
+
+// 3. Preview Excel: không set Content-Type JSON.
+async function previewAdmission(token: string, file: File) {
   const form = new FormData();
   form.append("file", file);
-  const preview = await request<AdmissionPreviewResponse>(ENDPOINTS.admissionPreview, {
-    token: accessToken, body: form,
+  const response = await apiRequest<AdmissionPreviewResponse>(
+    API_URLS.students.admissionPreview,
+    { method: "POST", token, form },
+  );
+  return response.data; // Đọc errors/capacityWarnings trước confirm.
+}
+
+// 4. DELETE học phần CÓ body.
+async function deleteSubject(token: string, subjectId: number, reason: string) {
+  const json: SubjectActionRequest = { reason, confirmed: true };
+  await apiRequest(API_URLS.subjects.delete(subjectId), {
+    method: "DELETE",
+    token,
+    json,
   });
-  console.log(preview.data.batchId, preview.data.errors);
-  // Cho người dùng review/điều chỉnh/xác nhận trước khi gọi admissionConfirm.
-
-  await request<void>(ENDPOINTS.authLogout, {
-    token: accessToken, body: { refreshToken },
-  });
-}
-```
-
-Dynamic URL dùng dạng `{ ...ENDPOINTS.studentGet, url: ENDPOINTS.studentGet.url(studentId) }`. Với DELETE môn học, vẫn truyền body `{reason, confirmed:true}` vào helper. FE nên phân biệt `ApiError` có JSON từ BE với lỗi mạng, CORS hoặc proxy trả body không phải JSON.
-
-### 12.4. Kiểm chứng và nguồn đối chiếu
-
-- Đã rà toàn bộ annotation mapping, kể cả annotation viết đầy đủ package trong `LecturerController`, cùng các service/facade thực sự được gọi. Tổng **38 cặp HTTP method + URL**, không đếm URL tài liệu dự kiến.
-- Đã compile source bằng `mvn -o -DskipTests compile`. Kiểm tra serialization với Jackson 3.1.7/DTO biên dịch từ source: `PageResponse → last`, `UserInfoResponse → firstLogin`, `SemesterResponse → isLocked`; response void bỏ `data`.
-- Đã so sánh tự động đủ 38 cặp method/URL giữa annotation Java, bảng Markdown và constant URL TypeScript; đối chiếu tên field JSON của **21 DTO response/DTO lồng và wrapper phân trang/lỗi field** với interface TS. Các ví dụ JSON parse được, liên kết file tồn tại, bản contract chèn trong Markdown khớp file `.ts`. Đã kiểm tra cú pháp TS và thực thi các hàm tạo URL bằng Node; chưa chạy typecheck/build trong dự án FE của nhóm.
-- Đây là hợp đồng đối chiếu source; **chưa xác nhận E2E bằng HTTP trên database/môi trường triển khai**. Việc compile/serialization không chứng minh SMTP, migration hay nguồn Enrollment đã sẵn sàng.
-- Bộ Postman hiện có để đối chiếu/chạy thủ công sau khi chuẩn bị dữ liệu: [Identity](../postman/EduHub-Identity.postman_collection.json), [People](../postman/EduHub-People.postman_collection.json), [Curriculum](../postman/EduHub-Curriculum.postman_collection.json), [Scheduling](../postman/EduHub-Scheduling.postman_collection.json).
-- Folder `docs/` hiện bị `.gitignore` bỏ qua. File có trên máy; nếu muốn chia sẻ qua Git, cần chủ động force-add file tài liệu/contract theo quy trình của nhóm.
-
-| Phần | Source chính |
-|---|---|
-| Khởi động/config | [EduHubApplication.java](../src/main/java/com/eduhub/edu_hub/EduHubApplication.java), [application.yaml](../src/main/resources/application.yaml), [WebCorsConfig.java](../src/main/java/com/eduhub/edu_hub/shared/config/WebCorsConfig.java) |
-| Token/auth/admin | [AccessTokenFilter.java](../src/main/java/com/eduhub/edu_hub/identity/api/AccessTokenFilter.java), [identity/api](../src/main/java/com/eduhub/edu_hub/identity/api), [identity/application](../src/main/java/com/eduhub/edu_hub/identity/application) |
-| Người học/giảng viên/nhập học | [people/api](../src/main/java/com/eduhub/edu_hub/people/api), [people/application](../src/main/java/com/eduhub/edu_hub/people/application) |
-| Học phần/tiên quyết | [SubjectController.java](../src/main/java/com/eduhub/edu_hub/curriculum/api/controller/SubjectController.java), [SubjectApplicationService.java](../src/main/java/com/eduhub/edu_hub/curriculum/application/SubjectApplicationService.java) |
-| Kỳ/lớp/gợi ý | [scheduling/api](../src/main/java/com/eduhub/edu_hub/scheduling/api), [scheduling/application](../src/main/java/com/eduhub/edu_hub/scheduling/application), [scheduling/infrastructure](../src/main/java/com/eduhub/edu_hub/scheduling/infrastructure) |
-| Response/lỗi | [shared/common](../src/main/java/com/eduhub/edu_hub/shared/common), [ErrorCode.java](../src/main/java/com/eduhub/edu_hub/shared/exception/ErrorCode.java), [GlobalExceptionHandler.java](../src/main/java/com/eduhub/edu_hub/shared/exception/GlobalExceptionHandler.java) |
-
-## 13. DTO và URL TypeScript đầy đủ
-
-`?` = field request có thể bỏ; `| null` = chấp nhận/trả null theo luồng mô tả. Response field null không đồng nghĩa bị lược bỏ: `NON_NULL` áp dụng trên wrapper ApiResponse, không áp dụng chung cho mọi DTO. Kiểu TS không mã hóa được tất cả giới hạn số/chuỗi và tính không rỗng; FE validate theo các mục trên, BE vẫn là nơi quyết định.
-
-`UpdateStudentRequest` trong contract FE chủ động không expose field `studentCode` dù Java có field này, vì service cấm mọi giá trị non-null. Các kiểu query phía FE đã gộp page/size cho tiện gọi; payload response và body còn lại dùng tên JSON của BE.
-
-```typescript
-/**
- * EduHub — hợp đồng FE theo source ngày 2026-11-04.
- * 38 endpoint nghiệp vụ / 8 controller. Đọc FE_API_INTEGRATION.md trước khi dùng.
- * URL đã chứa /api/v1; chỉ ghép thêm origin, ví dụ http://localhost:8080.
- * Không bao gồm API chưa có controller (refresh, enrollment, academic, AI...).
- * Kiểu TypeScript không thay thế validation runtime; ràng buộc xem tài liệu đi kèm.
- */
-
-export type Id = number;
-export type UUID = string;
-export type LocalDateString = string; // yyyy-MM-dd; giữ nguyên chuỗi, không đổi timezone.
-export type UtcLocalDateTimeString = string; // yyyy-MM-ddTHH:mm:ss[.fraction], không có Z.
-
-export type RoleName = "STUDENT" | "LECTURER" | "ACADEMIC_ADMIN" | "SYSTEM_ADMIN";
-export type UserStatus = "ACTIVE" | "LOCKED" | "DISABLED";
-export type TrainingType = "CHINH_QUY" | "LIEN_THONG" | "VAN_BANG_2";
-export type ActivityStatus = "STUDYING" | "DEACTIVATED" | "DELETED";
-export type LecturerStatus = "ACTIVE" | "INACTIVE";
-export type AccountNotificationStatus = "PENDING" | "SENT" | "FAILED";
-export type SubjectStatus = "ACTIVE" | "INACTIVE";
-export type SemesterStatus = "UPCOMING" | "ONGOING" | "ENDED";
-export type ModuleClassStatus = "UNSCHEDULED" | "SCHEDULED" | "OPEN" | "CANCELLED";
-
-export interface FieldErrorDetail {
-  field: string;
-  message: string;
 }
 
-export type ApiSuccess<T> = {
-  success: true;
-  message: string;
-  timestamp: UtcLocalDateTimeString;
-} & ([T] extends [void] ? { data?: never } : { data: T });
-
-export interface ApiFailure {
-  success: false;
-  code: number; // mã nghiệp vụ, khác HTTP status.
-  message: string;
-  path: string;
-  timestamp: UtcLocalDateTimeString;
-  errors?: FieldErrorDetail[];
+// 5. Confirm chỉ sau khi người dùng đã đọc preview/cảnh báo.
+async function confirmAdmission(
+  token: string,
+  batchId: string,
+  acceptMinimumCapacityWarning: boolean,
+) {
+  const response = await apiRequest<AdmissionConfirmResponse>(
+    API_URLS.students.admissionConfirm(batchId),
+    { method: "POST", token, json: { acceptMinimumCapacityWarning } },
+  );
+  return response.data;
 }
+~~~
 
-export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
+Khi gọi danh sách, ghép URL bằng `toQuery({ keyword, page: 0, size: 20 })`. Form số nên dùng `Number(value)` và `Number.isInteger` trước submit; TypeScript number không tự bảo đảm số nguyên hoặc khoảng giá trị.
 
-export interface PageResponse<T> {
-  content: T[];
-  pageNumber: number;
-  pageSize: number;
-  totalElements: number;
-  totalPages: number;
-  last: boolean; // JSON là last, Java field là isLast.
-}
+Khi bắt `ApiRequestError`: `payload.code=4000` mới xử lý phiên hết hiệu lực; `4003` là lỗi thông tin tại form. `1001` hiện field errors, `4108/4313/4320` mở xác nhận có nội dung rồi người dùng chủ động gửi lại. `4317/4325` thông báo chưa đủ nguồn dữ liệu. Các `errors` liên quan danh sách lớp/kỳ hiển thị trong vùng thông báo chung, không ép vào input không tồn tại.
 
-export interface PageQuery {
-  page?: number; // mặc định 0, >= 0.
-  size?: number; // mặc định 20, >= 1.
-}
+### 13.2. Thứ tự tích hợp đề nghị
 
-// Identity
-export interface LoginRequest {
-  username: string;
-  password: string;
-}
+1. **Kết nối cơ bản:** cấu hình origin → login → lưu trạng thái phiên theo kiến trúc FE → gửi Bearer → xử lý 4000 và hết hạn 900 giây.
+2. **First-login:** điều hướng đổi mật khẩu → xóa token → login lại. Không tạo vòng lặp tự refresh vì chưa có API.
+3. **Màn danh sách:** Student/Lecturer/Subject/Semester/Room/ModuleClass; map đúng content/pageNumber/last, lọc và reset page.
+4. **Cấp tài khoản:** lấy ID danh mục thật → tạo SV/GV → đọc warnings/notification → hiển thị trạng thái gửi lại. Không giả “tạo thất bại” khi email FAILED.
+5. **Hồ sơ cá nhân:** dùng SV đã được tạo và liên kết User; chỉ PATCH targetGpa/phone, thử cả bỏ field và null.
+6. **Import:** chọn XLSX → preview → hiển thị lỗi theo dòng và warnings → chỉnh từng lớp nếu cần → confirm tập hợp lệ → đọc emailFailures → tải lại danh sách.
+7. **Học phần/kỳ/phòng:** dùng đúng full PUT hay cập nhật từng field theo mô tả; triển khai các hộp xác nhận và hiển thị xung đột.
+8. **Mở lớp:** dùng danh mục môn ACTIVE để tạo lô; gợi ý/hủy lớp giữ trạng thái “chưa sẵn sàng” khi thiếu Enrollment, không chặn toàn màn quản lý lớp chỉ vì gợi ý lỗi.
+9. **Phần chờ BE:** endpoint danh mục, refresh token nếu cần, Enrollment + lịch sử, phân công/xếp lịch, học vụ/điểm, phân quyền đầy đủ. Chỉ ghép các tính năng này sau khi có controller và hợp đồng mới.
 
-export interface UserInfoResponse {
-  id: Id; // User ID, không phải Student/Lecturer ID.
-  username: string;
-  email: string | null; // login hiện không map email; admin search có map.
-  role: RoleName;
-  fullName: string | null; // các mapper hiện chưa điền.
-  firstLogin: boolean; // JSON là firstLogin, Java field là isFirstLogin.
-  status: UserStatus;
-}
+## 14. Phạm vi kiểm chứng
 
-export interface LoginResponse {
-  accessToken: string;
-  refreshToken: string; // dùng cho logout; chưa có HTTP endpoint refresh.
-  tokenType: "Bearer";
-  expiresIn: number; // giây; hiện 900.
-  user: UserInfoResponse;
-  requirePasswordChange: boolean;
-}
+Tài liệu bám source của workspace này, không cam kết binary đang deploy ở máy chủ khác đã cùng phiên bản. Đã rà đủ controller, DTO trực tiếp/lồng nhau, service, adapter facade, query/specification, mã lỗi và handler; phân biệt capability nội bộ với REST công khai.
 
-export interface LogoutRequest {
-  refreshToken: string;
-}
+Kiểm tra bổ sung của lần bàn giao được ghi dưới đây. Các ví dụ JSON dùng ID minh họa, không khẳng định bản ghi tương ứng có trong DB của người chạy. Không khởi động ứng dụng với database trong .env, không gọi API tạo người/confirm/reset password, không gửi email thật và không chạy migration trong lần tạo tài liệu.
 
-export interface ChangePasswordRequest {
-  currentPassword?: string | null; // bắt buộc nghiệp vụ nếu không phải first login.
-  newPassword: string;
-  confirmPassword: string;
-}
+### Kết quả kiểm tra trong lần bàn giao
 
-export interface AdminUserSearchQuery extends PageQuery {
-  keyword?: string; // username, mặc định "".
-}
-
-// Tên record thực sự trong AdminUserController; không dùng LockUserRequest.
-export interface LockBody {
-  reason: string;
-}
-
-// People — sinh viên
-export interface StudentSearchQuery extends PageQuery {
-  keyword?: string;
-  majorId?: Id;
-  cohortId?: Id;
-  classId?: Id; // khác tên administrativeClassId ở body tạo/sửa.
-  activityStatus?: ActivityStatus;
-  academicWarningStatus?: string; // chưa có enum/range được BE công bố.
-}
-
-export interface StudentResponse {
-  id: Id;
-  studentCode: string;
-  fullName: string;
-  dateOfBirth: LocalDateString | null;
-  email: string | null;
-  phone: string | null;
-  citizenId: string | null;
-  majorName: string | null;
-  cohortCode: string | null;
-  className: string | null;
-  trainingType: TrainingType | null;
-  entranceScore: number | null;
-  targetGpa: number | null;
-  activityStatus: ActivityStatus;
-  academicWarningStatus: string | null;
-  academicWarningReason: string | null;
-  statusReason: string | null; // mapper hiện chưa điền => null.
-  createdAt: UtcLocalDateTimeString | null;
-}
-
-export interface CreateStudentRequest {
-  fullName: string;
-  dateOfBirth?: LocalDateString | null;
-  gender?: string | null;
-  email: string;
-  phone?: string | null;
-  citizenId?: string | null;
-  majorId: Id;
-  cohortId: Id;
-  administrativeClassId: Id;
-  trainingType: TrainingType;
-  entranceScore?: number | null;
-  reason: string;
-}
-
-export interface CreateStudentResponse {
-  student: StudentResponse;
-  warnings: string[];
-  notificationStatus: AccountNotificationStatus;
-  notificationError: string | null;
-}
-
-export interface AccountNotificationResponse {
-  studentId: Id;
-  studentCode: string;
-  notificationStatus: AccountNotificationStatus;
-  notificationError: string | null;
-}
-
-export interface UpdateStudentRequest {
-  // Không gửi studentCode: mọi giá trị non-null đều bị từ chối.
-  fullName?: string | null;
-  dateOfBirth?: LocalDateString | null;
-  email?: string | null;
-  phone?: string | null;
-  citizenId?: string | null;
-  administrativeClassId?: Id | null;
-  targetGpa?: number | null; // endpoint quản trị hiện chỉ kiểm tra >= 0.
-  academicWarningStatus?: string | null;
-  academicWarningReason?: string | null;
-  statusReason?: string | null; // chỉ dùng log, chưa được lưu vào hồ sơ.
-}
-
-export interface UpdateMyStudentProfileRequest {
-  targetGpa?: number | null; // 0..4; null xóa; bỏ field giữ nguyên.
-  phone?: string | null; // tối đa 255; null xóa; bỏ field giữ nguyên.
-  // Mọi field ngoài hai field này bị BE từ chối.
-}
-
-// People — nhập học Excel
-// Preview: FormData.append("file", file); không tự set Content-Type.
-export interface AdmissionClassAdjustmentRequest {
-  applicationCode: string;
-  targetClassId: Id;
-}
-
-export interface AdmissionConfirmRequest {
-  actor?: string | null; // source nhận từ body cho audit; nên gửi username hiện tại.
-  acceptMinimumCapacityWarning?: boolean; // mặc định false.
-}
-
-export interface AdmissionErrorResponse {
-  rowNumber: number; // dòng Excel, tính từ 1.
-  applicationCode: string | null;
-  field: string;
-  reason: string; // khác errors[].message của ApiFailure.
-}
-
-export interface AdmissionStudentPreview {
-  rowNumber: number;
-  applicationCode: string;
-  fullName: string;
-  dateOfBirth: LocalDateString;
-  gender: string;
-  email: string;
-  entranceScore: number;
-  majorCode: string;
-  cohortCode: string;
-  trainingType: string; // giá trị gốc từ file, có thể khác hoa/thường; BE validate bằng uppercase.
-  assignedClassId: Id;
-  assignedClassName: string;
-}
-
-export interface AdmissionClassPreview {
-  classId: Id;
-  className: string;
-  currentSize: number;
-  projectedSize: number;
-  minCapacity: number;
-  maxCapacity: number;
-  projectedAverageEntranceScore: number;
-  students: AdmissionStudentPreview[];
-}
-
-export interface AdmissionPreviewResponse {
-  batchId: UUID;
-  fileName: string;
-  totalRows: number;
-  validRows: number;
-  invalidRows: number; // thực tế = errors.length; không phải số dòng lỗi distinct.
-  classes: AdmissionClassPreview[];
-  errors: AdmissionErrorResponse[];
-  duplicateNameWarnings: string[];
-  capacityWarnings: string[];
-}
-
-export interface AdmissionConfirmResponse {
-  batchId: UUID;
-  createdStudents: number;
-  createdUsers: number;
-  emailFailures: string[]; // mã hồ sơ applicationCode, không phải địa chỉ email.
-}
-
-// People — giảng viên
-export interface LecturerSearchQuery extends PageQuery {
-  keyword?: string;
-  lecturerCode?: string;
-  fullName?: string;
-  facultyId?: Id;
-  status?: LecturerStatus;
-}
-
-export interface LecturerResponse {
-  id: Id;
-  lecturerCode: string;
-  fullName: string;
-  email: string | null;
-  phone: string | null;
-  dateOfBirth: LocalDateString | null;
-  citizenId: string | null;
-  facultyId: Id | null;
-  accountNotificationStatus: AccountNotificationStatus | null;
-  accountNotificationError: string | null;
-  facultyName: string | null;
-  status: LecturerStatus;
-}
-
-export interface CreateLecturerRequest {
-  fullName: string;
-  dateOfBirth: LocalDateString;
-  email: string;
-  phone?: string | null;
-  citizenId?: string | null;
-  facultyId: Id;
-  reason: string;
-}
-
-export interface CreateLecturerResponse {
-  lecturer: LecturerResponse;
-  warnings: string[];
-  notificationStatus: AccountNotificationStatus;
-  notificationError: string | null;
-}
-
-export interface LecturerNotificationResponse {
-  lecturerId: Id;
-  lecturerCode: string;
-  notificationStatus: AccountNotificationStatus;
-  notificationError: string | null;
-}
-
-// Curriculum — học phần
-export interface SubjectSearchQuery extends PageQuery {
-  keyword?: string;
-  subjectCode?: string;
-  subjectName?: string;
-  credits?: number;
-  status?: SubjectStatus;
-  withoutPrerequisites?: boolean;
-}
-
-export interface SubjectSimpleResponse {
-  id: Id;
-  subjectCode: string;
-  subjectName: string;
-  credits: number;
-}
-
-export interface SubjectResponse extends SubjectSimpleResponse {
-  description: string | null;
-  status: SubjectStatus;
-  prerequisites: SubjectSimpleResponse[];
-  requiredBy: SubjectSimpleResponse[];
-}
-
-export interface CreateSubjectRequest {
-  subjectCode: string;
-  subjectName: string;
-  credits: number;
-  description?: string | null;
-}
-
-export interface UpdateSubjectRequest {
-  subjectCode?: string | null; // bỏ field hoặc giữ đúng mã cũ.
-  subjectName: string;
-  credits: number;
-  description?: string | null; // bỏ field cũng được lưu thành null.
-}
-
-export interface SubjectActionRequest {
-  reason: string;
-  confirmed: boolean; // phải true để thực hiện.
-}
-
-export interface SetPrerequisiteRequest {
-  prerequisiteSubjectIds: Id[]; // thay thế toàn bộ; [] gỡ hết.
-}
-
-// Scheduling — kỳ học
-export interface SemesterSearchQuery extends PageQuery {
-  keyword?: string;
-  status?: SemesterStatus;
-}
-
-export interface SemesterResponse {
-  id: Id;
-  semesterCode: string;
-  semesterName: string;
-  startDate: LocalDateString;
-  endDate: LocalDateString;
-  registrationStart: LocalDateString;
-  registrationEnd: LocalDateString;
-  status: SemesterStatus;
-  isLocked: boolean; // giữ nguyên isLocked (Java là Boolean, không phải boolean).
-  lockedGrade: boolean;
-}
-
-export interface CreateSemesterRequest {
-  semesterName: string;
-  startDate: LocalDateString;
-  endDate: LocalDateString;
-  registrationStart: LocalDateString;
-  registrationEnd: LocalDateString;
-}
-
-export interface UpdateSemesterRequest extends CreateSemesterRequest {
-  confirmDateChange?: boolean;
-}
-
-// Scheduling — lớp học phần
-export interface ModuleClassSearchQuery extends PageQuery {
-  keyword?: string; // chỉ mã lớp học phần.
-  semesterId?: Id;
-  subjectId?: Id;
-  lecturerId?: Id;
-  status?: ModuleClassStatus;
-}
-
-export interface ClassScheduleResponse {
-  id: Id;
-  moduleClassId: Id;
-  roomCode: string | null;
-  buildingCode: string | null;
-  roomNumber: string | null;
-  dayOfWeek: number; // 2..8.
-  lessonOrderStart: number;
-  lessonOrderEnd: number;
-  startDate: LocalDateString | null;
-  endDate: LocalDateString | null;
-}
-
-export interface ModuleClassResponse {
-  id: Id;
-  semesterId: Id;
-  subjectId: Id;
-  lecturerId: Id | null;
-  classSequence: number;
-  dataSource: string; // hiện "DATABASE".
-  moduleClassCode: string;
-  subjectCode: string | null;
-  subjectName: string | null;
-  credits: number;
-  lecturerName: string | null;
-  semesterCode: string;
-  maxCapacity: number;
-  currentSize: number;
-  status: ModuleClassStatus;
-  schedules: ClassScheduleResponse[]; // mapper hiện luôn trả [].
-}
-
-export interface OpeningSubjectResponse {
-  subjectId: Id;
-  subjectCode: string;
-  subjectName: string;
-  credits: number;
-  onTimeStudentCount: number;
-  retakeStudentCount: number;
-  missedStudentCount: number;
-  expectedStudentCount: number;
-  recommendedClassCount: number;
-  existingClassCount: number;
-  dataSource: string;
-  historyComplete: boolean;
-}
-
-export interface CreateModuleClassRequest {
-  maxCapacity?: number; // JSON integer 1..80; bỏ field mặc định 80; null bị từ chối.
-}
-
-export interface SubjectClassesRequest {
-  subjectId: Id;
-  confirmAdditionalClasses?: boolean; // mặc định false, theo từng subject.
-  classes: CreateModuleClassRequest[]; // không rỗng.
-}
-
-export interface CreateModuleClassesRequest {
-  subjects: SubjectClassesRequest[]; // không rỗng, không lặp subjectId.
-}
-
-export interface UpdateModuleClassRequest {
-  maxCapacity: number;
-  reason: string;
-}
-
-export interface CancelModuleClassRequest {
-  reason: string;
-}
-
-/** Method + URL; query truyền riêng bằng URLSearchParams; body theo tài liệu. */
-export const API_PREFIX = "/api/v1";
-export const ENDPOINTS = {
-  authLogin: { method: "POST", url: `${API_PREFIX}/auth/login` },
-  authLogout: { method: "POST", url: `${API_PREFIX}/auth/logout` },
-  authChangePassword: { method: "POST", url: `${API_PREFIX}/auth/change-password` },
-  adminUsersSearch: { method: "GET", url: `${API_PREFIX}/admin/users` },
-  adminUserLock: { method: "POST", url: (userId: Id) => `${API_PREFIX}/admin/users/${userId}/lock` },
-  adminUserUnlock: { method: "POST", url: (userId: Id) => `${API_PREFIX}/admin/users/${userId}/unlock` },
-  adminUserResetPassword: { method: "POST", url: (userId: Id) => `${API_PREFIX}/admin/users/${userId}/reset-password` },
-  studentsSearch: { method: "GET", url: `${API_PREFIX}/students` },
-  studentGet: { method: "GET", url: (id: Id) => `${API_PREFIX}/students/${id}` },
-  studentCreate: { method: "POST", url: `${API_PREFIX}/students` },
-  studentUpdate: { method: "PUT", url: (id: Id) => `${API_PREFIX}/students/${id}` },
-  studentResendNotification: { method: "POST", url: (id: Id) => `${API_PREFIX}/students/${id}/account-notification/resend` },
-  myStudentGet: { method: "GET", url: `${API_PREFIX}/students/me` },
-  myStudentUpdate: { method: "PATCH", url: `${API_PREFIX}/students/me` },
-  admissionPreview: { method: "POST", url: `${API_PREFIX}/students/admission/preview` },
-  admissionAdjustAssignment: { method: "PUT", url: (batchId: UUID) => `${API_PREFIX}/students/admission/${encodeURIComponent(batchId)}/assignment` },
-  admissionConfirm: { method: "POST", url: (batchId: UUID) => `${API_PREFIX}/students/admission/${encodeURIComponent(batchId)}/confirm` },
-  lecturersSearch: { method: "GET", url: `${API_PREFIX}/lecturers` },
-  lecturerGet: { method: "GET", url: (id: Id) => `${API_PREFIX}/lecturers/${id}` },
-  lecturerCreate: { method: "POST", url: `${API_PREFIX}/lecturers` },
-  lecturerResendNotification: { method: "POST", url: (id: Id) => `${API_PREFIX}/lecturers/${id}/account-notification/resend` },
-  subjectsSearch: { method: "GET", url: `${API_PREFIX}/subjects` },
-  subjectGet: { method: "GET", url: (id: Id) => `${API_PREFIX}/subjects/${id}` },
-  subjectCreate: { method: "POST", url: `${API_PREFIX}/subjects` },
-  subjectUpdate: { method: "PUT", url: (id: Id) => `${API_PREFIX}/subjects/${id}` },
-  subjectDeactivate: { method: "POST", url: (id: Id) => `${API_PREFIX}/subjects/${id}/deactivate` },
-  subjectDelete: { method: "DELETE", url: (id: Id) => `${API_PREFIX}/subjects/${id}` },
-  subjectSetPrerequisites: { method: "POST", url: (id: Id) => `${API_PREFIX}/subjects/${id}/prerequisites` },
-  semestersSearch: { method: "GET", url: `${API_PREFIX}/semesters` },
-  semesterGet: { method: "GET", url: (id: Id) => `${API_PREFIX}/semesters/${id}` },
-  semesterCreate: { method: "POST", url: `${API_PREFIX}/semesters` },
-  semesterUpdate: { method: "PUT", url: (id: Id) => `${API_PREFIX}/semesters/${id}` },
-  openingSubjects: { method: "GET", url: (semesterId: Id) => `${API_PREFIX}/semesters/${semesterId}/opening-subjects` },
-  moduleClassesSearch: { method: "GET", url: `${API_PREFIX}/module-classes` },
-  moduleClassGet: { method: "GET", url: (id: Id) => `${API_PREFIX}/module-classes/${id}` },
-  moduleClassesCreateBatch: { method: "POST", url: (semesterId: Id) => `${API_PREFIX}/semesters/${semesterId}/module-classes/batch` },
-  moduleClassUpdate: { method: "PATCH", url: (id: Id) => `${API_PREFIX}/module-classes/${id}` },
-  moduleClassCancel: { method: "POST", url: (id: Id) => `${API_PREFIX}/module-classes/${id}/cancel` },
-} as const;
-```
+- **Compile source thành công:** mvn -o -DskipTests compile.
+- **115 test đạt, 0 lỗi, 0 bỏ qua** trong 8 lớp test controller/validation/exception hiện có: SubjectControllerTest, SemesterControllerTest, ModuleClassControllerTest, RoomControllerTest, MyStudentProfileControllerTest, StudentControllerAdmissionTest, GlobalExceptionHandlerTest, CurriculumExceptionHandlerTest.
+- Đối chiếu tự động **đủ 44 cặp method + URL** từ 9 controller với cả bảng tài liệu và hằng URL TypeScript, không có route thiếu/thừa.
+- Kiểm tra serialization bằng Jackson trên DTO đã biên dịch; **49 tập field DTO** trùng file TypeScript sau khi tính kế thừa/alias và hai tham số page/size riêng của controller People. Xác nhận last, firstLogin, isLocked và envelope bỏ field null.
+- File TypeScript nạp được bằng Node 24 hỗ trợ TypeScript; đã kiểm tra cú pháp/runtime của 44 hằng/hàm URL. Đây không phải lần chạy toàn bộ static type-check/build của dự án FE.
+- **25 ví dụ JSON** parse hợp lệ; đường dẫn tài liệu/source/file mẫu và các code fence đã được kiểm tra.
+- Chưa chạy kiểm thử HTTP end-to-end trên môi trường BE/FE của nhóm; các test controller dùng mock không chứng minh toàn bộ luồng database/email đã hoạt động. Các giới hạn nghiệp vụ và dependency thiếu được nêu ngay ở từng endpoint.

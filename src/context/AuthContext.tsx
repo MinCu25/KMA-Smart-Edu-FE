@@ -13,7 +13,7 @@ import type {
   UserInfoResponse,
 } from "../types/dto";
 import type { Role } from "../types/navigation";
-import { DEMO_ACCOUNTS } from "../services/mock/authService";
+import { accountRole, passwordPage, roleHome } from "../config/navigation";
 import {
   createContext,
   useContext,
@@ -36,43 +36,25 @@ function useAuthState() {
     }).accounts,
   );
   const [session, setSession] = useState<LoginResponse | null>(null);
-  const [logged, setLogged] = useState(false);
-  const [loginError, setLoginError] = useState("");
+  const logged = session !== null;
   const [role, setRole] = useState<Role>("student");
-  async function login(
-    username: string,
-    password: string,
-    selectedRole: Role = "student",
-  ) {
+  async function login(username: string, password: string) {
     try {
-      const wireRole = DEMO_ACCOUNTS[selectedRole].wireRole;
       const data = backendEnabled
         ? await api.auth.login({ username, password })
-        : await authenticateAccount(users, username, password, wireRole);
-      if (data.user.role !== wireRole) {
-        if (backendEnabled)
-          await createEduApi({
-            getAccessToken: () => data.accessToken,
-          }).auth.logout({ refreshToken: data.refreshToken });
-        throw Error("Tài khoản không thuộc vai trò đã chọn.");
-      }
-      setRole(selectedRole);
+        : await authenticateAccount(users, username, password);
+      const role = accountRole(data.user.role);
+      setRole(role);
       setSession(data);
+      return { ok: true, page: data.requirePasswordChange ? passwordPage[role] : roleHome[role] } as const;
     } catch (error) {
-      setLoginError(
-        error instanceof Error ? error.message : "Đăng nhập thất bại.",
-      );
-      return error instanceof Error ? error.message : "Đăng nhập thất bại.";
+      const message = error instanceof Error ? error.message : "Đăng nhập thất bại.";
+      return { ok: false, message } as const;
     }
-    setLogged(true);
-    setLoginError("");
-    return null;
   }
   const clearSession = useCallback(() => {
-    setSession(null);
-    setLogged(false);
-    setLoginError("");
-  }, []);
+    setSession(current => current === session ? null : current);
+  }, [session]);
   const api = useMemo(
     () =>
       createEduApi({
@@ -201,7 +183,6 @@ function useAuthState() {
     session,
     role,
     logged,
-    loginError,
     login,
     logout,
     users,

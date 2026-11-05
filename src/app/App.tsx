@@ -65,11 +65,11 @@ export default function App() {
         ? roleHome[role]
         : page;
   useEffect(() => {
-    if (logged && pageRoles[page] !== role) {
-      window.location.hash = roleHome[role];
-      setPage(roleHome[role]);
+    if (logged && page !== activePage) {
+      window.history.replaceState(null, "", "#" + activePage);
+      setPage(activePage);
     }
-  }, [logged, role, page]);
+  }, [logged, activePage, page]);
   const content =
     backendEnabled && activePage !== passwordPage[role] ? (
       <LiveAccountPage
@@ -103,7 +103,7 @@ export default function App() {
         </StudentLayout>
       )}
       <Toast />
-      <AppDialog />
+      {logged && <AppDialog />}
     </div>
   );
 }

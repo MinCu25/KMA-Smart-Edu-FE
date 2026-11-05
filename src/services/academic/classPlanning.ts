@@ -9,6 +9,18 @@ import type { RoomRecord } from "../../context/AcademicContext";
 import { conflicts } from "../../utils/academicRules";
 import { addDays, occursOn, validDate } from "../../utils/timetable";
 export const MAX_CLASS_CAPACITY = 80;
+export function roomFitsClass(
+  room: RoomRecord,
+  capacity: number,
+  requiredType?: string,
+) {
+  return (
+    !room.deleted &&
+    room.status === "ACTIVE" &&
+    room.capacity >= capacity &&
+    (!requiredType || room.roomType === requiredType)
+  );
+}
 export function buildOpeningRequest(
   rows: { subjectId: number; maxCapacity: string | number }[],
   confirmed: boolean,
@@ -103,13 +115,7 @@ export function publicationProblems(
   for (const s of c.schedules) {
     reasons.push(...Object.values(scheduleProblems(s, term)).flat());
     const r = rooms.find((r) => r.roomCode === s.roomCode);
-    if (
-      !r ||
-      r.deleted ||
-      r.status !== "ACTIVE" ||
-      r.capacity < c.maxCapacity ||
-      r.roomType !== identities[c.id]?.roomType
-    )
+    if (!r || !roomFitsClass(r, c.maxCapacity, identities[c.id]?.roomType))
       reasons.push(`Phòng ${s.roomCode} không phù hợp hoặc thiếu chỗ`);
     reasons.push(
       ...conflicts(classes, c, s, identities).map((x) => `Trùng lịch: ${x}`),

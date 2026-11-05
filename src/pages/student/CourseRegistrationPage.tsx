@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useManagement } from "../../context/ManagementContext";
 import { Badge, Notice, Card } from "../../components/common";
 import { useEnrollment } from "../../hooks/useEnrollment";
-import { allCourses } from "../../data/mock/courses";
+import { enrollmentStates } from "../../utils/enrollmentStates";
 export default function CourseRegistrationPage() {
   const { term, semester } = useManagement();
   const {
@@ -88,11 +88,9 @@ export default function CourseRegistrationPage() {
                 onChange={(e) => setStatus(e.target.value)}
               >
                 <option value="">Tất cả điều kiện</option>
-                <option value="available">Đủ điều kiện</option>
-                <option value="registered">Đã đăng ký</option>
-                <option value="missing">Thiếu tiên quyết</option>
-                <option value="conflict">Trùng lịch</option>
-                <option value="full">Lớp đã đủ</option>
+                {Object.entries(enrollmentStates).map(([value, display]) => (
+                  <option key={value} value={value}>{display.label}</option>
+                ))}
               </select>
             </label>
             <button className="btn" onClick={resetFilters}>
@@ -121,12 +119,13 @@ export default function CourseRegistrationPage() {
               <tbody>
                 {filtered.map((c) => {
                   const state = condition(c);
+                  const {label, color} = enrollmentStates[state];
                   return (
                     <tr
                       key={c.id}
                       className={
                         inspectedId === c.id
-                          ? `condition-row-${state === "missing" ? "yellow" : state === "conflict" || state === "full" ? "red" : "green"}`
+                          ? `condition-row-${color}`
                           : ""
                       }
                     >
@@ -143,25 +142,7 @@ export default function CourseRegistrationPage() {
                         {occupancy(c)}/{c.capacity}
                       </td>
                       <td>
-                        <Badge
-                          tone={
-                            state === "missing"
-                              ? "yellow"
-                              : state === "conflict" || state === "full"
-                                ? "red"
-                                : "green"
-                          }
-                        >
-                          {state === "registered"
-                            ? "Đã đăng ký"
-                            : state === "missing"
-                              ? "Thiếu tiên quyết"
-                              : state === "conflict"
-                                ? "Trùng lịch"
-                                : state === "full"
-                                  ? "Lớp đã đủ"
-                                  : "Đủ điều kiện"}
-                        </Badge>
+                        <Badge tone={color}>{label}</Badge>
                       </td>
                       <td>
                         <button

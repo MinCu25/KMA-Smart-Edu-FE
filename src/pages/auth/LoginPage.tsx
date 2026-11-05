@@ -3,13 +3,11 @@ import { useState } from "react";
 import { useUI } from "../../context/UIContext";
 import { Brand } from "../../components/common";
 import { useAuth } from "../../context/AuthContext";
-import { roleNames, roleHome } from "../../config/navigation";
-import type { PageProps, Role } from "../../types/navigation";
+import type { PageProps } from "../../types/navigation";
 export default function LoginPage({ onNavigate }: PageProps) {
   const { notify, notifyError, dismissToast } = useUI();
   const { login } = useAuth();
   const [pending, setPending] = useState(false);
-  const [role, setRole] = useState<Role>("student");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const form = useFormErrors((data) => ({
@@ -25,7 +23,6 @@ export default function LoginPage({ onNavigate }: PageProps) {
       <section className="login-box">
         <Brand />
         <h1>Đăng nhập</h1>
-        <p>Chọn vai trò để vào không gian làm việc của bạn.</p>
         <form
           noValidate
           onChange={(e) => {
@@ -37,35 +34,14 @@ export default function LoginPage({ onNavigate }: PageProps) {
             if (!form.check(e.currentTarget)) return;
             if (pending) return;
             setPending(true);
-            const error = await login(username.trim(), password, role);
-            if (!error) {
-              onNavigate(roleHome[role]);
+            const result = await login(username.trim(), password);
+            if (result.ok) {
+              onNavigate(result.page);
               notify("Đăng nhập thành công.");
-            } else notifyError(error);
+            } else notifyError(result.message);
             setPending(false);
           }}
         >
-          <label>
-            Vai trò
-            <select
-              disabled={pending}
-              value={role}
-              onChange={(e) => {
-                const next = e.target.value as Role;
-                form.reset();
-                dismissToast();
-                setRole(next);
-                setUsername("");
-                setPassword("");
-              }}
-            >
-              {Object.entries(roleNames).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
           <label>
             Tên đăng nhập
             <input

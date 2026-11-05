@@ -45,3 +45,13 @@ export const roleHome = {
   lecturer: "teaching-classes",
   "system-admin": "accounts",
 } as const;
+
+export function accountRole(value: string) {
+  switch (value) {
+    case "STUDENT": return "student";
+    case "LECTURER": return "lecturer";
+    case "ACADEMIC_ADMIN": return "academic-admin";
+    case "SYSTEM_ADMIN": return "system-admin";
+    default: throw Error("Vai trò của tài khoản chưa được hỗ trợ.");
+  }
+}

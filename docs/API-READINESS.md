@@ -1,6 +1,8 @@
 # Tình trạng bàn giao — 2026-11-03
 
-Đối chiếu develop `8253c0e2965b53bab1a3ab47e068a472a2e99255`. Nguồn hiện hành: `develop-contract.json` (78 tệp DTO/common/enum/controller), `src/types/dto.ts`, `src/services/api/eduApi.ts`. Đây là bản sửa FE, **chưa phải nghiệm thu API thật**.
+Bản lưu ngày 03/11. Xem [hợp đồng hiện hành](FE_API_INTEGRATION.md) để tra cứu phiên bản 44 endpoint.
+
+Đối chiếu develop `8253c0e2965b53bab1a3ab47e068a472a2e99255`. Nguồn tại thời điểm đối chiếu: `develop-contract.json` (78 tệp DTO/common/enum/controller), `src/types/dto.ts`, `src/services/api/eduApi.ts`. Đây là bản sửa FE, **chưa phải nghiệm thu API thật**.
 
 ## Đã sửa sau rà soát toàn luồng
 

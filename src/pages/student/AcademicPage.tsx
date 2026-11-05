@@ -1,3 +1,4 @@
+import { enrollmentStates } from "../../utils/enrollmentStates";
 import { savedComponents } from "../../services/academic/studentAcademic";
 import { useAuth } from "../../context/AuthContext";
 import { Badge, Notice, Card } from "../../components/common";
@@ -202,13 +203,7 @@ export default function AcademicPage({ onNavigate }: PageProps) {
                 <span>
                   {c.name} · {c.id}
                 </span>
-                <Badge
-                  tone={
-                    state === "available" || state === "registered"
-                      ? "green"
-                      : "yellow"
-                  }
-                >
+                <Badge tone={enrollmentStates[state].color}>
                   {state === "registered"
                     ? "Đã đăng ký"
                     : state === "available"
