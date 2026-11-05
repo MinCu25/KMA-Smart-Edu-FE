@@ -1,5 +1,7 @@
+import { useLiveRequest } from "../live/client";
+import type { PageResponse } from "../../services/api/backendContract";
 import { useAcademic } from "../../context/AcademicContext";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useUI } from "../../context/UIContext";
 import { useManagement } from "../../context/ManagementContext";
@@ -25,10 +27,36 @@ const normalize = (s: string) =>
     .toLowerCase()
     .trim();
 export default function AccountsPage() {
-  const { users, setUsers, session, resetPassword } = useAuth();
+  const { users } = useAuth();
   const { excludedLecturerCodes } = useAcademic();
-  const { notify, setDialog } = useUI();
   const { log } = useManagement();
+  return (
+    <AccountScreen
+      users={users.filter(
+        (u) =>
+          !(
+            u.role === "LECTURER" && excludedLecturerCodes.includes(u.username)
+          ),
+      )}
+      log={log}
+    />
+  );
+}
+export function LiveAccounts() {
+  return <AccountScreen users={[]} live />;
+}
+function AccountScreen({
+  users,
+  live = false,
+  log = () => {},
+}: {
+  users: UserInfoResponse[];
+  live?: boolean;
+  log?: (actor: string, action: string, detail: string) => void;
+}) {
+  const { setUsers, session, resetPassword } = useAuth();
+  const { notify, notifyError, setDialog } = useUI();
+  const request = useLiveRequest();
   const [query, setQuery] = useState("");
   const [role, setRole] = useState("");
   const [status, setStatus] = useState("");
@@ -48,19 +76,54 @@ export default function AccountsPage() {
         }
       : {},
   );
-  const listedUsers = users.filter(
-    u => !(u.role === "LECTURER" && excludedLecturerCodes.includes(u.username)),
-  );
-  const filtered = listedUsers.filter(
+  const [remote, setRemote] = useState<PageResponse<UserInfoResponse>>(),
+    [error, setError] = useState(""),
+    [revision, refresh] = useState(0);
+  useEffect(() => {
+    if (!live) return;
+    let active = true;
+    setRemote(undefined);
+    setError("");
+    const timer = setTimeout(() => {
+      request<PageResponse<UserInfoResponse>>(
+        "adminUsersSearch",
+        undefined,
+        undefined,
+        new URLSearchParams({
+          keyword: query.trim(),
+          page: String(page - 1),
+          size: String(size),
+        }),
+      )
+        .then((r) => {
+          if (active) {
+            if (page > Math.max(1, r.totalPages))
+              setPage(Math.max(1, r.totalPages));
+            else setRemote(r);
+          }
+        })
+        .catch((e) => {
+          if (active) setError(e.message);
+        });
+    }, 150);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [live, request, page, size, query, revision]);
+  const filtered = users.filter(
     (u) =>
-      normalize(`${u.username} ${u.fullName}`).includes(normalize(query)) &&
+      normalize(u.username + " " + u.fullName).includes(normalize(query)) &&
       (!role || u.role === role) &&
       (!status || u.status === status),
   );
-  const pages = Math.max(1, Math.ceil(filtered.length / size));
-  const current = Math.min(page, pages);
-  const start = (current - 1) * size;
-  const visible = filtered.slice(start, start + size);
+  const count = live ? (remote?.totalElements ?? 0) : filtered.length;
+  const pages = Math.max(1, Math.ceil(count / size)),
+    current = live ? page : Math.min(page, pages),
+    start = (current - 1) * size;
+  const visible = live
+    ? (remote?.content ?? [])
+    : filtered.slice(start, start + size);
   function clear() {
     setQuery("");
     setRole("");
@@ -76,10 +139,19 @@ export default function AccountsPage() {
       title: `Mở khóa ${user.username}?`,
       body: `Cho phép ${user.fullName} đăng nhập trở lại.`,
       confirm: "Mở khóa",
-      action: () => {
-        setUsers((old) =>
-          old.map((u) => (u.id === user.id ? { ...u, status: "ACTIVE" } : u)),
-        );
+      action: async () => {
+        if (live) {
+          try {
+            await request("adminUserUnlock", user.id);
+            refresh((n) => n + 1);
+          } catch (e) {
+            notifyError(e instanceof Error ? e.message : "Mở khóa thất bại.");
+            return;
+          }
+        } else
+          setUsers((old) =>
+            old.map((u) => (u.id === user.id ? { ...u, status: "ACTIVE" } : u)),
+          );
         log(session?.user.username ?? "", "Mở khóa tài khoản", user.username);
         notify(`Đã mở khóa ${user.username}.`);
       },
@@ -98,7 +170,9 @@ export default function AccountsPage() {
           <label>
             Tìm kiếm
             <input
-              placeholder="Tên đăng nhập hoặc họ tên…"
+              placeholder={
+                live ? "Tên đăng nhập…" : "Tên đăng nhập hoặc họ tên…"
+              }
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -106,47 +180,53 @@ export default function AccountsPage() {
               }}
             />
           </label>
-          <label>
-            Vai trò
-            <select
-              value={role}
-              onChange={(e) => {
-                setRole(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">Tất cả vai trò</option>
-              {Object.entries(roles).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Trạng thái
-            <select
-              value={status}
-              onChange={(e) => {
-                setStatus(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">Tất cả trạng thái</option>
-              {Object.entries(statuses).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
+          {!live && (
+            <>
+              <label>
+                Vai trò
+                <select
+                  value={role}
+                  onChange={(e) => {
+                    setRole(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">Tất cả vai trò</option>
+                  {Object.entries(roles).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Trạng thái
+                <select
+                  value={status}
+                  onChange={(e) => {
+                    setStatus(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">Tất cả trạng thái</option>
+                  {Object.entries(statuses).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          )}
           <button className="btn" onClick={clear}>
             Xóa bộ lọc
           </button>
         </div>
         <div className="account-count" role="status">
-          <strong>{filtered.length}</strong>
-          <span>tài khoản phù hợp / {listedUsers.length} tài khoản</span>
+          <strong>{count}</strong>
+          <span>
+            tài khoản phù hợp{!live && <> / {users.length} tài khoản</>}
+          </span>
         </div>
         <div className="table-scroll">
           <table>
@@ -167,7 +247,7 @@ export default function AccountsPage() {
               {visible.map((u) => (
                 <tr key={u.id}>
                   <td className="code-text">{u.username}</td>
-                  <td>{u.fullName}</td>
+                  <td>{u.fullName || "—"}</td>
                   <td>{roles[u.role] ?? u.role}</td>
                   <td>
                     <span
@@ -217,20 +297,30 @@ export default function AccountsPage() {
             </tbody>
           </table>
         </div>
-        {!filtered.length && (
+        {live && !remote && (
+          <p role="status" className="empty-state">
+            {error || "Đang tải danh sách tài khoản…"}{" "}
+            {error && (
+              <button className="btn" onClick={() => refresh((n) => n + 1)}>
+                Thử lại
+              </button>
+            )}
+          </p>
+        )}
+        {!count && (!live || remote) && (
           <div className="empty-state" role="status">
             <h2>Không tìm thấy tài khoản phù hợp</h2>
           </div>
         )}
         <div className="account-pagination">
           <p className="account-pagination-summary" role="status">
-            {filtered.length ? (
+            {count ? (
               <>
                 Hiển thị{" "}
                 <strong>
-                  {start + 1}–{Math.min(start + size, filtered.length)}
+                  {start + 1}–{Math.min(start + size, count)}
                 </strong>{" "}
-                trong <strong>{filtered.length}</strong> tài khoản
+                trong <strong>{count}</strong> tài khoản
               </>
             ) : (
               "Không có tài khoản để hiển thị"
@@ -309,7 +399,14 @@ export default function AccountsPage() {
                 const f = new FormData(e.currentTarget);
                 setPending(true);
                 try {
-                  if (modal.mode === "lock")
+                  if (live) {
+                    if (modal.mode === "lock")
+                      await request("adminUserLock", modal.user.id, {
+                        reason: String(f.get("reason")).trim(),
+                      });
+                    else await request("adminUserResetPassword", modal.user.id);
+                    refresh((n) => n + 1);
+                  } else if (modal.mode === "lock")
                     setUsers((old) =>
                       old.map((u) =>
                         u.id === modal.user.id ? { ...u, status: "LOCKED" } : u,
@@ -337,9 +434,7 @@ export default function AccountsPage() {
                   setModal(null);
                   form.reset();
                 } catch (e) {
-                  form.setFormError(
-                    e instanceof Error ? e.message : "Không thể lưu thay đổi.",
-                  );
+                  form.applyError(e);
                 } finally {
                   setPending(false);
                 }
@@ -348,7 +443,9 @@ export default function AccountsPage() {
               <div className="record-fields">
                 {(modal.mode === "lock"
                   ? [["reason", "Lý do khóa"]]
-                  : [["reason", "Lý do đặt lại (không bắt buộc)"]]
+                  : live
+                    ? []
+                    : [["reason", "Lý do đặt lại (không bắt buộc)"]]
                 ).map(([name, label]) => (
                   <label key={name}>
                     {label}

@@ -57,7 +57,7 @@ export default function StudentLayout({
             onClick={() => setAccountOpen(!accountOpen)}
             aria-expanded={accountOpen}
           >
-            <b>{session?.user.fullName}</b>
+            <b>{session?.user.fullName || session?.user.username}</b>
             <span>Sinh viên</span>
           </button>
           {accountOpen && (

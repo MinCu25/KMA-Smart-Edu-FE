@@ -19,9 +19,12 @@ import {
   useContext,
   useState,
   useEffect,
+  useCallback,
+  useMemo,
   type ReactNode,
 } from "react";
-import { loginDemo } from "../services/mock/dtoService";
+import { createEduApi } from "../services/api/eduApi";
+import { ApiError, backendEnabled } from "../services/api/httpClient";
 import type { LoginResponse } from "../types/dto";
 
 function useAuthState() {
@@ -42,12 +45,17 @@ function useAuthState() {
     selectedRole: Role = "student",
   ) {
     try {
-      const data = await authenticateAccount(
-        users,
-        username,
-        password,
-        DEMO_ACCOUNTS[selectedRole].wireRole,
-      );
+      const wireRole = DEMO_ACCOUNTS[selectedRole].wireRole;
+      const data = backendEnabled
+        ? await api.auth.login({ username, password })
+        : await authenticateAccount(users, username, password, wireRole);
+      if (data.user.role !== wireRole) {
+        if (backendEnabled)
+          await createEduApi({
+            getAccessToken: () => data.accessToken,
+          }).auth.logout({ refreshToken: data.refreshToken });
+        throw Error("Tài khoản không thuộc vai trò đã chọn.");
+      }
       setRole(selectedRole);
       setSession(data);
     } catch (error) {
@@ -60,14 +68,28 @@ function useAuthState() {
     setLoginError("");
     return null;
   }
-  function logout() {
+  const clearSession = useCallback(() => {
     setSession(null);
     setLogged(false);
     setLoginError("");
+  }, []);
+  const api = useMemo(
+    () =>
+      createEduApi({
+        getAccessToken: () => session?.accessToken,
+        onUnauthorized: clearSession,
+      }),
+    [session, clearSession],
+  );
+  async function logout() {
+    if (backendEnabled && session)
+      await api.auth.logout({ refreshToken: session.refreshToken });
+    clearSession();
   }
   useEffect(() => {
     if (!session) return;
-    const timer = setTimeout(logout, session.expiresIn * 1000);
+    const timer = setTimeout(clearSession, session.expiresIn * 1000);
+    if (backendEnabled) return () => clearTimeout(timer);
     const invalidate = (event: StorageEvent) => {
       if (
         !["kma-password-verifiers-v1", "kma-users-v1"].includes(event.key ?? "")
@@ -81,7 +103,7 @@ function useAuthState() {
             JSON.stringify(before?.[session.user.username]) !==
             JSON.stringify(after?.[session.user.username])
           )
-            logout();
+            clearSession();
         } else {
           const current = (after as UserInfoResponse[] | null)?.find(
             (u) => u.id === session.user.id,
@@ -91,10 +113,10 @@ function useAuthState() {
             current.status !== "ACTIVE" ||
             current.firstLogin !== session.user.firstLogin
           )
-            logout();
+            clearSession();
         }
       } catch {
-        logout();
+        clearSession();
       }
     };
     window.addEventListener("storage", invalidate);
@@ -105,6 +127,7 @@ function useAuthState() {
   }, [session]);
   useEffect(() => {
     if (
+      !backendEnabled &&
       session &&
       users.find((u) => u.id === session.user.id)?.status !== "ACTIVE"
     )
@@ -112,6 +135,21 @@ function useAuthState() {
   }, [users]);
   async function changePassword(request: ChangePasswordRequest) {
     if (!session) throw Error("Phiên đăng nhập đã hết hạn.");
+    if (backendEnabled) {
+      try {
+        await api.auth.changePassword(request);
+      } catch (error) {
+        if (
+          error instanceof ApiError &&
+          error.status === 401 &&
+          error.code === 4003
+        )
+          return false;
+        throw error;
+      }
+      clearSession();
+      return true;
+    }
     if (!request.newPassword.trim() || request.newPassword.length < 8)
       throw Error("Mật khẩu mới phải có ít nhất 8 ký tự.");
     if (request.newPassword !== request.confirmPassword)
@@ -157,6 +195,8 @@ function useAuthState() {
     setUsers((old) => [...old, ...created]);
   }
   return {
+    api,
+    clearSession,
     provisionAccounts,
     session,
     role,

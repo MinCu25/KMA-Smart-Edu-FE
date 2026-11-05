@@ -1,0 +1,37 @@
+.live-fields,
+.live-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 215px), 1fr));
+  gap: 1rem;
+}
+.live-details dt {
+  color: #556177;
+  font-size: 0.85rem;
+}
+.live-details dd {
+  margin: 0.3rem 0;
+  overflow-wrap: anywhere;
+}
+fieldset.live-fields,
+.card > fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.live-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+.live-scroll {
+  overflow-x: auto;
+}
+.live-fields input[type="checkbox"],
+.card fieldset input[type="checkbox"] {
+  width: auto;
+}
+dialog.live-dialog { margin:auto; border:0; padding:24px; width:min(640px,calc(100vw - 32px)); max-height:85dvh; overflow:auto; color:inherit; }
+dialog.live-dialog::backdrop { background:rgb(15 27 55 / .48); }

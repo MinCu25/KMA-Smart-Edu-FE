@@ -1,3 +1,5 @@
+import { useState } from "react";
+import type { StudentResponse } from "../../services/api/backendContract";
 import { useAuth } from "../../context/AuthContext";
 import { useFormErrors } from "../../hooks/useFormErrors";
 import {
@@ -6,7 +8,6 @@ import {
   normalizePhone,
   validateTarget,
 } from "../../utils/profileValidation";
-import type { UpdateStudentRequest } from "../../types/dto";
 import { updateStudent } from "../../services/mock/dtoService";
 import { studentView } from "../../services/adapters";
 import { Card } from "../../components/common";
@@ -14,32 +15,99 @@ import { useDemoData } from "../../context/DemoDataContext";
 import { useUI } from "../../context/UIContext";
 export default function ProfilePage() {
   const { target, setTarget, studentData, updateStudents } = useDemoData();
-  const { notify } = useUI();
+
   const { session, users, setUsers } = useAuth();
   const currentStudent = studentData.find(
     (s) => s.dto.studentCode === session?.user.username,
   )?.dto;
+  if (!currentStudent)
+    return (
+      <Card title="Tài khoản cá nhân">
+        Không tìm thấy hồ sơ sinh viên của tài khoản đang đăng nhập.
+      </Card>
+    );
+  return (
+    <ProfileForm
+      currentStudent={currentStudent}
+      target={target}
+      duplicate={(email) =>
+        [
+          ...studentData.map((s) => ({ username: s.id, email: s.dto.email })),
+          ...users,
+        ].some(
+          (u) =>
+            u.username !== session?.user.username &&
+            (u.email ?? "").trim().toLowerCase() === email,
+        )
+      }
+      saveContact={(email, phone) => {
+        updateStudents(
+          studentData.map((s) =>
+            s.dto.id === currentStudent.id
+              ? studentView(updateStudent(s.dto, { email, phone }))
+              : s,
+          ),
+        );
+        setUsers((old) =>
+          old.map((u) => (u.id === session?.user.id ? { ...u, email } : u)),
+        );
+      }}
+      saveTarget={(value) => {
+        updateStudents(
+          studentData.map((s) =>
+            s.dto.id === currentStudent.id
+              ? studentView(updateStudent(s.dto, { targetGpa: Number(value) }))
+              : s,
+          ),
+        );
+        setTarget(value);
+      }}
+    />
+  );
+}
+export function ProfileForm({
+  currentStudent,
+  target,
+  live = false,
+  duplicate,
+  saveContact,
+  saveTarget,
+}: {
+  currentStudent: Pick<
+    StudentResponse,
+    "fullName" | "studentCode" | "email" | "phone" | "className" | "majorName"
+  >;
+  target: string;
+  live?: boolean;
+  duplicate?: (email: string) => boolean;
+  saveContact: (email: string, phone: string) => void | Promise<void>;
+  saveTarget: (value: string) => void | Promise<void>;
+}) {
+  const { notify } = useUI();
+  const [pending, setPending] = useState(false);
   const contactForm = useFormErrors((f) => ({
-    email: [
-      validateEmail(String(f.get("email") ?? "")),
-      [
-        ...studentData.map((s) => ({ username: s.id, email: s.dto.email })),
-        ...users,
-      ].some(
-        (u) =>
-          u.username !== session?.user.username &&
-          (u.email ?? "").trim().toLowerCase() ===
+    email: live
+      ? []
+      : [
+          validateEmail(String(f.get("email") ?? "")),
+          duplicate?.(
             String(f.get("email") ?? "")
               .trim()
               .toLowerCase(),
-      )
-        ? "Email đã được sử dụng."
-        : "",
-    ].filter(Boolean),
-    phone: [validatePhone(String(f.get("phone") ?? ""))].filter(Boolean),
+          )
+            ? "Email đã được sử dụng."
+            : "",
+        ].filter(Boolean),
+    phone:
+      live && !f.get("phone")
+        ? []
+        : [validatePhone(String(f.get("phone") ?? ""))].filter(Boolean),
   }));
   const targetForm = useFormErrors((f) => ({
-    target: [validateTarget(String(f.get("target") ?? ""))].filter(Boolean),
+    targetGpa:
+      live && !f.get("targetGpa")
+        ? []
+        : [validateTarget(String(f.get("targetGpa") ?? ""))].filter(Boolean),
   }));
   function fieldError(form: typeof contactForm, name: string) {
     return form.errors[name]?.length ? (
@@ -50,12 +118,6 @@ export default function ProfilePage() {
       </div>
     ) : null;
   }
-  if (!currentStudent)
-    return (
-      <Card title="Tài khoản cá nhân">
-        Không tìm thấy hồ sơ sinh viên của tài khoản đang đăng nhập.
-      </Card>
-    );
   return (
     <>
       <div className="page-title">
@@ -69,34 +131,23 @@ export default function ProfilePage() {
           <form
             noValidate
             onChange={contactForm.onChange}
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
+              if (pending || !contactForm.check(e.currentTarget)) return;
               const f = new FormData(e.currentTarget);
-              const email = String(f.get("email")).trim().toLowerCase();
-              const phone = String(f.get("phone")).trim();
-              if (!contactForm.check(e.currentTarget)) return;
-              const request: UpdateStudentRequest = {
-                email,
-                phone: normalizePhone(phone),
-              };
+              setPending(true);
               try {
-                updateStudents(
-                  studentData.map((s) =>
-                    s.dto.id === currentStudent.id
-                      ? studentView(updateStudent(s.dto, request))
-                      : s,
-                  ),
-                );
-                setUsers((old) =>
-                  old.map((u) =>
-                    u.id === session?.user.id ? { ...u, email } : u,
-                  ),
+                await saveContact(
+                  String(f.get("email") ?? "")
+                    .trim()
+                    .toLowerCase(),
+                  normalizePhone(String(f.get("phone") ?? "")),
                 );
                 notify("Đã lưu thông tin liên hệ.");
-              } catch {
-                contactForm.setFormError(
-                  "Không thể lưu thông tin liên hệ. Vui lòng kiểm tra quyền lưu dữ liệu của trình duyệt rồi thử lại.",
-                );
+              } catch (e) {
+                contactForm.applyError(e);
+              } finally {
+                setPending(false);
               }
             }}
           >
@@ -117,7 +168,8 @@ export default function ProfilePage() {
                   {...contactForm.props("email")}
                   name="email"
                   type="email"
-                  defaultValue={currentStudent.email}
+                  disabled={live}
+                  defaultValue={currentStudent.email ?? ""}
                   required
                 />
                 {fieldError(contactForm, "email")}
@@ -127,7 +179,7 @@ export default function ProfilePage() {
                 <input
                   {...contactForm.props("phone")}
                   name="phone"
-                  defaultValue={currentStudent.phone}
+                  defaultValue={currentStudent.phone ?? ""}
                   type="tel"
                   autoComplete="tel"
                   required
@@ -138,11 +190,11 @@ export default function ProfilePage() {
             <div className="form-row">
               <label>
                 Lớp
-                <input disabled value={currentStudent.className} />
+                <input disabled value={currentStudent.className ?? ""} />
               </label>
               <label>
                 Ngành
-                <input disabled value={currentStudent.majorName} />
+                <input disabled value={currentStudent.majorName ?? ""} />
               </label>
             </div>
             <div className="form-actions">
@@ -151,7 +203,9 @@ export default function ProfilePage() {
                   {contactForm.formError}
                 </p>
               )}
-              <button className="btn primary">Lưu cập nhật</button>
+              <button disabled={pending} className="btn primary">
+                Lưu cập nhật
+              </button>
             </div>
           </form>
         </Card>
@@ -159,30 +213,28 @@ export default function ProfilePage() {
           <form
             noValidate
             onChange={targetForm.onChange}
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              const f = new FormData(e.currentTarget);
-              const value = String(f.get("target"));
-              if (!targetForm.check(e.currentTarget)) return;
-              const request: UpdateStudentRequest = {
-                targetGpa: Number(value),
-              };
-              updateStudents(
-                studentData.map((s) =>
-                  s.dto.id === currentStudent.id
-                    ? studentView(updateStudent(s.dto, request))
-                    : s,
-                ),
+              if (pending || !targetForm.check(e.currentTarget)) return;
+              const value = String(
+                new FormData(e.currentTarget).get("targetGpa") ?? "",
               );
-              setTarget(value);
-              notify("Đã cập nhật GPA mục tiêu.");
+              setPending(true);
+              try {
+                await saveTarget(value);
+                notify("Đã cập nhật GPA mục tiêu.");
+              } catch (e) {
+                targetForm.applyError(e);
+              } finally {
+                setPending(false);
+              }
             }}
           >
             <label>
               GPA mục tiêu (thang 4)
               <input
-                {...targetForm.props("target")}
-                name="target"
+                {...targetForm.props("targetGpa")}
+                name="targetGpa"
                 type="number"
                 min="0"
                 max="4"
@@ -190,14 +242,16 @@ export default function ProfilePage() {
                 defaultValue={target}
                 required
               />
-              {fieldError(targetForm, "target")}
+              {fieldError(targetForm, "targetGpa")}
             </label>
             {targetForm.formError && (
               <p className="field-error" role="alert">
                 {targetForm.formError}
               </p>
             )}
-            <button className="btn primary full">Lưu mục tiêu</button>
+            <button disabled={pending} className="btn primary full">
+              Lưu mục tiêu
+            </button>
           </form>
         </Card>
       </div>

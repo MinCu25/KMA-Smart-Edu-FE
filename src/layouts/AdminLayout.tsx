@@ -127,7 +127,7 @@ export default function AdminLayout({
                   : "HV"}
             </span>
             <span>
-              <b>{session?.user.fullName}</b>
+              <b>{session?.user.fullName || session?.user.username}</b>
               <small>{session?.user.username}</small>
             </span>
           </div>

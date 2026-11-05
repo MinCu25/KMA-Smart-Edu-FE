@@ -60,7 +60,12 @@ export function createEduApi(options: {
         token,
       );
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401 && authenticated)
+      if (
+        e instanceof ApiError &&
+        e.status === 401 &&
+        e.code !== 4003 &&
+        authenticated
+      )
         options.onUnauthorized?.();
       throw e;
     }
@@ -119,6 +124,8 @@ export function createEduApi(options: {
         call<void>(`/admin/users/${id(userId)}/reset-password`, "POST"),
     },
     students: {
+      me: () =>
+        data<import("./backendContract").StudentResponse>("/students/me"),
       search: (r: D.StudentSearchRequest & { page?: number; size?: number }) =>
         data<D.PageResponse<D.StudentResponse>>(
           "/students" +

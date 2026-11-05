@@ -1,3 +1,5 @@
+import { backendEnabled } from "../services/api/httpClient";
+import { LiveAccountPage } from "../pages/auth/LiveAccountPage";
 import { roleHome, passwordPage } from "../config/navigation";
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
@@ -45,8 +47,13 @@ export default function App() {
       title: "Đăng xuất",
       body: "Bạn có chắc chắn muốn đăng xuất khỏi phiên đăng nhập?",
       confirm: "Đăng xuất",
-      action: () => {
-        logout();
+      action: async () => {
+        try {
+          await logout();
+        } catch (e) {
+          notifyError(e instanceof Error ? e.message : "Đăng xuất thất bại.");
+          return;
+        }
         notify("Đã đăng xuất khỏi phiên đăng nhập.");
       },
     });
@@ -63,12 +70,18 @@ export default function App() {
       setPage(roleHome[role]);
     }
   }, [logged, role, page]);
-  const content = <AppRoutes page={activePage} onNavigate={navigate} />;
+  const content =
+    backendEnabled && activePage !== passwordPage[role] ? (
+      <LiveAccountPage
+        key={activePage}
+        page={activePage}
+        onNavigate={navigate}
+      />
+    ) : (
+      <AppRoutes page={activePage} onNavigate={navigate} />
+    );
   return (
-    <div
-      onSubmitCapture={dismissToast}
-
-    >
+    <div onSubmitCapture={dismissToast}>
       {!logged ? (
         <LoginPage onNavigate={navigate} />
       ) : pageRoles[activePage] !== "student" ? (

@@ -30,7 +30,6 @@ function Prerequisites({
   const [selected, setSelected] = useState(
       subject.prerequisites.map((p) => p.id),
     ),
-    [q, setQ] = useState(""),
     [error, setError] = useState("");
   const dependents = a.data.subjects.filter((s) =>
     s.prerequisites.some((p) => p.id === subject.id),
@@ -102,17 +101,49 @@ function Prerequisites({
           .join("; ") || "Không có"}
         .
       </p>
+      <PrerequisiteChoices
+        subjects={a.data.subjects.filter(
+          (s) => s.id !== subject.id && !a.deletedSubjects.includes(s.id),
+        )}
+        selected={selected}
+        setSelected={setSelected}
+      />
+      {error && (
+        <p className="field-error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="dialog-actions">
+        <button type="button" className="btn" onClick={close}>
+          Hủy
+        </button>
+        <button className="btn primary">Lưu môn tiên quyết</button>
+      </div>
+    </form>
+  );
+}
+export function PrerequisiteChoices({
+  subjects,
+  selected,
+  setSelected,
+}: {
+  subjects: SubjectResponse[];
+  selected: number[];
+  setSelected: React.Dispatch<React.SetStateAction<number[]>>;
+}) {
+  const [q, setQ] = useState("");
+  return (
+    <>
+      {" "}
       <label>
         Tìm học phần tiên quyết
         <input value={q} onChange={(e) => setQ(e.target.value)} />
       </label>
       <div className="prerequisite-list">
-        {a.data.subjects
+        {subjects
           .filter(
             (s) =>
-              s.id !== subject.id &&
               s.status === "ACTIVE" &&
-              !a.deletedSubjects.includes(s.id) &&
               (s.subjectCode + " " + s.subjectName)
                 .toLowerCase()
                 .includes(q.toLowerCase()),
@@ -128,7 +159,6 @@ function Prerequisites({
                       ? [...old, s.id]
                       : old.filter((id) => id !== s.id),
                   );
-                  setError("");
                 }}
               />
               <span>
@@ -142,18 +172,7 @@ function Prerequisites({
         Đã chọn {selected.length} học phần. Bỏ chọn để gỡ ràng buộc. Thay đổi áp
         dụng từ thời điểm lưu, không hồi tố kết quả học tập.
       </p>
-      {error && (
-        <p className="field-error" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="dialog-actions">
-        <button type="button" className="btn" onClick={close}>
-          Hủy
-        </button>
-        <button className="btn primary">Lưu môn tiên quyết</button>
-      </div>
-    </form>
+    </>
   );
 }
 export default function SubjectsPage() {

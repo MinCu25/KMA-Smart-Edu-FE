@@ -49,6 +49,7 @@ export function validateTarget(value: string): string {
 export function validateNewPassword(value: string): string[] {
   if (!value.trim()) return ["Vui lòng nhập mật khẩu mới."];
   const errors: string[] = [];
+  if (/\s/.test(value)) errors.push("Mật khẩu không được chứa khoảng trắng.");
   if (value.length < 8) errors.push("Mật khẩu tối thiểu 8 ký tự.");
   if (!/[A-Z]/.test(value)) errors.push("Có ít nhất 1 ký tự in hoa.");
   if (!/[a-z]/.test(value)) errors.push("Có ít nhất 1 ký tự in thường.");

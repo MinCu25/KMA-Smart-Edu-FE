@@ -86,6 +86,7 @@ export function EditForm({
   const [busy, setBusy] = useState(false);
   return (
     <form
+      aria-busy={busy}
       className="student-form"
       noValidate
       onChange={(event) => {
@@ -94,7 +95,7 @@ export function EditForm({
       }}
       onSubmit={async (e) => {
         e.preventDefault();
-        if (!form.check(e.currentTarget)) return;
+        if (busy || !form.check(e.currentTarget)) return;
         const f = new FormData(e.currentTarget);
         setBusy(true);
         try {
@@ -114,6 +115,7 @@ export function EditForm({
             {x.options ? (
               <select
                 name={x.key}
+                disabled={busy}
                 defaultValue={x.value ?? ""}
                 {...form.props(x.key)}
               >
@@ -129,6 +131,7 @@ export function EditForm({
                 name={x.key}
                 type={x.type ?? "text"}
                 defaultValue={x.value ?? ""}
+                disabled={busy}
                 readOnly={x.readOnly}
                 min={x.min}
                 max={x.max}

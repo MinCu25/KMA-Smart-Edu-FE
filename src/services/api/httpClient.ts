@@ -1,5 +1,6 @@
 import type { ApiResponse, FieldErrorDetail } from "../../types/dto";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "");
+export const backendEnabled = import.meta.env?.VITE_AUTH_MODE === "api";
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -25,6 +26,7 @@ export async function apiRequest<T>(
     !headers.has("Content-Type")
   )
     headers.set("Content-Type", "application/json");
+  headers.set("Accept", "application/json");
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
   let response: Response;
   try {
