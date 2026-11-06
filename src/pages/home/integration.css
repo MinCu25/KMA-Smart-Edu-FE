@@ -1,0 +1,71 @@
+/* Keep the archive's visual language isolated from the authenticated app. */
+.kma-home {
+  min-height: 100dvh;
+}
+.kma-home main.container {
+  padding: 0;
+  max-width: none;
+  min-height: 0;
+}
+.kma-home footer {
+  display: block;
+  margin-top: 0;
+  padding: 0;
+  font: inherit;
+}
+.kma-home .footer-bottom {
+  display: block;
+}
+.kma-home label {
+  display: block;
+  font-size: inherit;
+  color: inherit;
+}
+.kma-home h1,
+.kma-home h2 {
+  letter-spacing: normal;
+}
+.kma-home small {
+  margin-top: 0;
+}
+.kma-home #login-form {
+  padding-top: 4px;
+}
+.kma-home button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.kma-home .home-field-error {
+  color: var(--crimson);
+  font-size: 13px;
+  margin: -8px 0 12px;
+}
+.kma-home .password-field + .home-field-error {
+  margin-top: 6px;
+}
+.kma-home .home-password-help {
+  background: var(--paper);
+  border-left: 3px solid var(--gold);
+  padding: 12px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.kma-home [id] {
+  scroll-margin-top: 76px;
+}
+@media (max-width: 480px) {
+  .kma-home .breadcrumb-row {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-block: 12px;
+  }
+  .kma-home .section-heading {
+    flex-wrap: wrap;
+  }
+  .kma-home .notice-tabs > button {
+    padding-inline: 16px;
+  }
+  .kma-home .identity h1 {
+    font-size: 20px;
+  }
+}

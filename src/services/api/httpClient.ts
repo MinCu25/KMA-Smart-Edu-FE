@@ -1,5 +1,5 @@
 import type { ApiResponse, FieldErrorDetail } from "../../types/dto";
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "");
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/+$/, "");
 export const backendEnabled = import.meta.env?.VITE_AUTH_MODE === "api";
 export class ApiError extends Error {
   constructor(
@@ -18,7 +18,7 @@ export async function apiRequest<T>(
   init: RequestInit = {},
   accessToken?: string,
 ): Promise<T | undefined> {
-  if (!API_BASE_URL) throw new Error("Chưa cấu hình VITE_API_BASE_URL.");
+  if (API_BASE_URL === undefined) throw new Error("Chưa cấu hình VITE_API_BASE_URL.");
   const headers = new Headers(init.headers);
   if (
     init.body &&

@@ -8,7 +8,7 @@ import { AppDialog } from "../components/common/AppDialog";
 import { Toast } from "../components/common/Toast";
 import StudentLayout from "../layouts/StudentLayout";
 import AdminLayout from "../layouts/AdminLayout";
-import LoginPage from "../pages/auth/LoginPage";
+import HomePage from "../pages/home/HomePage";
 import { AppRoutes, pageRoles } from "../routes/AppRoutes";
 import type { Page } from "../types/navigation";
 export default function App() {
@@ -83,7 +83,7 @@ export default function App() {
   return (
     <div onSubmitCapture={dismissToast}>
       {!logged ? (
-        <LoginPage onNavigate={navigate} />
+        <HomePage onNavigate={navigate} />
       ) : pageRoles[activePage] !== "student" ? (
         <AdminLayout
           page={activePage}

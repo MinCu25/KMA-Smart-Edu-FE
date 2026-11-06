@@ -1,0 +1,417 @@
+<a class="skip-link" href="#main">Bỏ qua điều hướng</a>
+<div class="utility">
+  <div class="container utility-inner">
+    <span>Năm học 2026 – 2027</span>
+    <div>
+      <a href="#support">Hướng dẫn sử dụng</a><span class="utility-sep">|</span
+      ><a href="#contact">Liên hệ</a
+      ><span class="language">VI <span aria-hidden="true">/</span> EN</span>
+    </div>
+  </div>
+</div>
+<header class="masthead">
+  <div class="container masthead-inner">
+    <a
+      class="identity"
+      href="#"
+      aria-label="Trang chủ Cổng thông tin đào tạo KMA"
+    >
+      <img
+        class="academy-logo"
+        src="__HOME_ASSETS__/logo.png"
+        alt="Huy hiệu Học viện Kỹ thuật Mật mã"
+        width="84"
+        height="86"
+      />
+      <div>
+        <p class="academy-title">HỌC VIỆN KỸ THUẬT MẬT MÃ</p>
+        <h1>Cổng thông tin đào tạo</h1>
+        <p class="academy-english">Academy of Cryptography Techniques</p>
+      </div>
+    </a>
+    <form class="head-search" id="head-search" role="search">
+      <label class="sr-only" for="head-q">Tra cứu thông báo</label
+      ><span data-icon="search"></span
+      ><input
+        id="head-q"
+        type="search"
+        placeholder="Tra cứu thông báo đào tạo…"
+        autocomplete="off"
+      /><button type="submit">Tìm</button>
+    </form>
+  </div>
+</header>
+<nav class="main-nav" aria-label="Điều hướng chính">
+  <div class="container nav-inner">
+    <button
+      id="menu-toggle"
+      class="menu-toggle"
+      aria-expanded="false"
+      aria-controls="nav-links"
+    >
+      Danh mục <span data-icon="menu"></span>
+    </button>
+    <div id="nav-links" class="nav-links">
+      <a class="active" href="#" aria-current="page">Trang chủ</a>
+      <a href="#notifications">Thông báo</a>
+      <a href="#plan">Kế hoạch đào tạo</a>
+      <a href="#documents">Quy chế – Biểu mẫu</a>
+      <a href="#documents">Dịch vụ sinh viên</a>
+      <a href="#support">Hướng dẫn</a>
+    </div>
+    <button class="nav-login" data-login>
+      Đăng nhập <span data-icon="log-in"></span>
+    </button>
+  </div>
+</nav>
+<main id="main" class="container">
+  <div class="breadcrumb-row">
+    <p>
+      <span data-icon="home"></span> <span>Trang chủ</span
+      ><span class="breadcrumb-slash">/</span>Thông tin đào tạo
+    </p>
+    <span class="demo-label">Bản thiết kế · Dữ liệu minh họa</span>
+  </div>
+  <section class="opening-grid" aria-label="Thông tin chung và đăng nhập">
+    <section
+      class="event-banner"
+      id="hero-carousel"
+      role="region"
+      aria-roledescription="carousel"
+      aria-label="Hoạt động nổi bật của Học viện"
+    >
+      <div class="stage">
+        <div class="slides" id="slides"></div>
+        <button
+          type="button"
+          class="slide-btn slide-nav prev"
+          id="slide-prev"
+          aria-label="Ảnh trước"
+        >
+          <span data-icon="chevron-left"></span>
+        </button>
+        <button
+          type="button"
+          class="slide-btn slide-nav next"
+          id="slide-next"
+          aria-label="Ảnh sau"
+        >
+          <span data-icon="chevron-right"></span>
+        </button>
+        <div
+          class="slide-dots"
+          id="slide-dots"
+          role="group"
+          aria-label="Chọn ảnh banner"
+        ></div>
+        <div class="slide-progress" aria-hidden="true">
+          <span id="slide-progress-fill"></span>
+        </div>
+        <button
+          type="button"
+          class="slide-btn slide-pause"
+          id="slide-toggle"
+          aria-label="Tạm dừng tự động chuyển ảnh"
+        ></button>
+      </div>
+      <div class="slide-bar">
+        <div class="slide-text" id="slide-text">
+          <span class="slide-cat" id="slide-cat"></span
+          ><button type="button" class="slide-title" id="event-detail">
+            <span id="slide-title"></span><span data-icon="arrow-right"></span>
+          </button>
+        </div>
+        <span class="slide-count" id="slide-count" aria-hidden="true"></span>
+      </div>
+    </section>
+    <section class="access-panel" aria-labelledby="access-heading">
+      <h2 id="access-heading">Đăng nhập hệ thống</h2>
+      <div id="portal-login-root"></div>
+    </section>
+  </section>
+  <div class="content-grid">
+    <section
+      class="notices-section"
+      id="notifications"
+      aria-labelledby="notice-heading"
+    >
+      <div class="section-heading">
+        <h2 id="notice-heading">Thông báo đào tạo</h2>
+        <span class="section-note">Thông tin dành cho người học</span>
+      </div>
+      <div class="notice-panel">
+        <div class="notice-tabs" role="tablist" aria-label="Loại thông báo">
+          <button
+            id="category-all"
+            role="tab"
+            aria-selected="true"
+            aria-controls="notice-results"
+            data-category="all"
+          >
+            Tất cả</button
+          ><button
+            id="category-academic"
+            role="tab"
+            aria-selected="false"
+            aria-controls="notice-results"
+            data-category="Học vụ"
+            tabindex="-1"
+          >
+            Học vụ</button
+          ><button
+            id="category-exam"
+            role="tab"
+            aria-selected="false"
+            aria-controls="notice-results"
+            data-category="Lịch thi"
+            tabindex="-1"
+          >
+            Lịch thi</button
+          ><button
+            id="category-fee"
+            role="tab"
+            aria-selected="false"
+            aria-controls="notice-results"
+            data-category="Học phí"
+            tabindex="-1"
+          >
+            Học phí</button
+          ><button
+            id="category-graduation"
+            role="tab"
+            aria-selected="false"
+            aria-controls="notice-results"
+            data-category="Tốt nghiệp"
+            tabindex="-1"
+          >
+            Tốt nghiệp
+          </button>
+        </div>
+        <div class="notice-tools">
+          <label class="notice-search"
+            ><span data-icon="search"></span
+            ><input
+              id="notice-search"
+              aria-label="Tìm thông báo"
+              placeholder="Tìm theo tiêu đề thông báo…"
+              type="search"
+            /><kbd>/</kbd></label
+          ><label class="semester-select"
+            ><span class="sr-only">Học kỳ</span
+            ><select id="semester" aria-label="Học kỳ">
+              <option value="all">Tất cả học kỳ</option>
+              <option value="1">Học kỳ 1 · 2026–2027</option>
+              <option value="2">Học kỳ 2 · 2025–2026</option>
+            </select></label
+          >
+        </div>
+        <div class="table-labels">
+          <span>Nội dung thông báo</span><span>Ngày đăng</span>
+        </div>
+        <div id="notice-results" role="tabpanel" aria-labelledby="category-all">
+          <ul id="notice-list" class="notice-list"></ul>
+        </div>
+        <div class="notice-bottom">
+          <p id="result-count" role="status" aria-live="polite"></p>
+          <nav
+            class="pagination"
+            aria-label="Phân trang thông báo"
+            id="pagination"
+          ></nav>
+        </div>
+      </div>
+    </section>
+    <aside class="sidebar">
+      <section id="plan" aria-labelledby="plan-heading">
+        <div class="section-heading">
+          <h2 id="plan-heading">Kế hoạch học vụ</h2>
+          <span class="year-note">2026–2027</span>
+        </div>
+        <div class="plan-panel">
+          <div class="plan-header">Học kỳ I <span>Lịch minh họa</span></div>
+          <ol class="plan-list">
+            <li>
+              <div class="plan-date">
+                <strong>09–13</strong><span>Tháng 11</span>
+              </div>
+              <div>
+                <button data-plan="0">Rà soát kết quả học tập</button
+                ><small>Kiểm tra điểm và thông tin học phần</small>
+              </div>
+            </li>
+            <li>
+              <div class="plan-date">
+                <strong>16–22</strong><span>Tháng 11</span>
+              </div>
+              <div>
+                <button data-plan="1">Đăng ký học phần học kỳ II</button
+                ><small>Dành cho sinh viên các khóa</small>
+              </div>
+            </li>
+            <li>
+              <div class="plan-date">
+                <strong>23–27</strong><span>Tháng 11</span>
+              </div>
+              <div>
+                <button data-plan="2">Điều chỉnh đăng ký học phần</button
+                ><small>Kiểm tra và hoàn thiện đăng ký</small>
+              </div>
+            </li>
+          </ol>
+          <button class="panel-footer-link" id="full-plan">
+            Xem kế hoạch học kỳ <span data-icon="arrow-right"></span>
+          </button>
+        </div>
+      </section>
+      <section
+        id="documents"
+        class="document-section"
+        aria-labelledby="document-heading"
+      >
+        <div class="section-heading">
+          <h2 id="document-heading">Văn bản và biểu mẫu</h2>
+        </div>
+        <ul class="document-list">
+          <li>
+            <button data-document="regulations">
+              <span data-icon="file-text"></span
+              ><span
+                >Quy chế đào tạo đại học<small
+                  >Các nội dung cần tra cứu</small
+                ></span
+              ><span data-icon="chevron-right"></span>
+            </button>
+          </li>
+          <li>
+            <button data-document="certificate">
+              <span data-icon="file-text"></span
+              ><span
+                >Đề nghị xác nhận sinh viên<small
+                  >Hướng dẫn thực hiện thủ tục</small
+                ></span
+              ><span data-icon="chevron-right"></span>
+            </button>
+          </li>
+          <li>
+            <button data-document="transcript">
+              <span data-icon="file-text"></span
+              ><span
+                >Đề nghị cấp bảng điểm<small
+                  >Hướng dẫn thực hiện thủ tục</small
+                ></span
+              ><span data-icon="chevron-right"></span>
+            </button>
+          </li>
+        </ul>
+      </section>
+    </aside>
+  </div>
+  <div class="secondary-grid">
+    <section class="academy-section" aria-labelledby="academy-heading">
+      <div class="section-heading">
+        <h2 id="academy-heading">Thông tin Học viện</h2>
+      </div>
+      <div class="academy-story">
+        <img
+          src="__HOME_ASSETS__/kma-campus.png"
+          alt="Gian giới thiệu Học viện Kỹ thuật Mật mã với biểu trưng I choose KMA"
+          width="2048"
+          height="1536"
+          loading="lazy"
+        />
+        <div>
+          <span class="story-category">Hoạt động đào tạo</span>
+          <h3>Học viện Kỹ thuật Mật mã</h3>
+          <p>
+            Cập nhật thông tin đào tạo, kế hoạch học tập và các hoạt động dành
+            cho sinh viên Học viện.
+          </p>
+          <button id="academy-detail">
+            Xem thông tin <span data-icon="arrow-right"></span>
+          </button>
+        </div>
+      </div>
+    </section>
+    <section
+      class="support-section"
+      id="support"
+      aria-labelledby="support-heading"
+    >
+      <div class="section-heading">
+        <h2 id="support-heading">Hướng dẫn và hỗ trợ</h2>
+      </div>
+      <div class="support-list">
+        <details>
+          <summary>Tôi cần làm gì khi quên mật khẩu?</summary>
+          <p>
+            Chọn “Quên mật khẩu?” tại khối đăng nhập để xem hướng dẫn. Chuẩn bị
+            mã sinh viên và email được cấp khi liên hệ bộ phận hỗ trợ.
+          </p>
+        </details>
+        <details>
+          <summary>Làm thế nào để đăng ký học phần?</summary>
+          <p>
+            Đăng nhập, chọn Đăng ký học phần, kiểm tra kế hoạch mở lớp và điều
+            kiện học phần trước khi gửi đăng ký. Đây là quy trình đề xuất của
+            bản giao diện.
+          </p>
+        </details>
+        <details>
+          <summary>Xin giấy xác nhận sinh viên ở đâu?</summary>
+          <p>
+            Truy cập Dịch vụ sinh viên, chọn Đề nghị xác nhận sinh viên, kiểm
+            tra thông tin và gửi yêu cầu. Chức năng đang ở mức giao diện minh
+            họa.
+          </p>
+        </details>
+      </div>
+    </section>
+  </div>
+</main>
+<footer id="contact">
+  <div class="container footer-main">
+    <div class="footer-identity">
+      <p class="footer-school">HỌC VIỆN KỸ THUẬT MẬT MÃ</p>
+      <strong>Cổng thông tin đào tạo</strong>
+      <p>Thông báo · Kế hoạch học vụ · Dịch vụ sinh viên</p>
+      <img
+        class="footer-wordmark"
+        src="__HOME_ASSETS__/academy-name.png"
+        alt="Nhận diện Học viện Kỹ thuật Mật mã"
+        width="446"
+        height="55"
+        loading="lazy"
+      />
+    </div>
+    <div>
+      <h2>Thông tin học vụ</h2>
+      <a href="#notifications">Thông báo đào tạo</a
+      ><a href="#plan">Kế hoạch học kỳ</a
+      ><a href="#documents">Quy chế và biểu mẫu</a>
+    </div>
+    <div>
+      <h2>Hỗ trợ người dùng</h2>
+      <a href="#support">Hướng dẫn sử dụng</a
+      ><button data-help="password">Hỗ trợ tài khoản</button
+      ><button data-help="contact">Liên hệ bộ phận đào tạo</button>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="container">
+      <span>© 2026 · Học viện Kỹ thuật Mật mã</span
+      ><span>Giao diện đề xuất · Chưa kết nối hệ thống nghiệp vụ</span>
+    </div>
+  </div>
+</footer>
+<dialog id="detail-dialog" aria-labelledby="dialog-title">
+  <div class="dialog-header">
+    <span id="dialog-category"></span
+    ><button id="dialog-close" aria-label="Đóng cửa sổ">
+      <span data-icon="x"></span>
+    </button>
+  </div>
+  <div class="dialog-body">
+    <h2 id="dialog-title"></h2>
+    <div id="dialog-content"></div>
+  </div>
+</dialog>
