@@ -1,0 +1,83 @@
+/* Academic portal: red institutional direction supplied in the admin ZIP. */
+.system-portal .academic-nav>div { justify-content:flex-start; }
+.system-portal .academic-nav button { padding-inline:28px; }
+.system-portal .system-accounts { padding:0; overflow:hidden; margin-bottom:35px; }
+.system-portal .account-filters { padding:23px 26px 16px; margin:0; display:flex; align-items:flex-end; gap:14px; }
+.system-portal .account-filters label { flex:1; font-size:12px; font-weight:500; }
+.system-portal .account-count { padding:0 26px 18px; display:flex; align-items:baseline; gap:8px; color:#657080; font-size:12px; }
+.system-portal .account-count strong { color:#941b2e; font-size:22px; }
+.system-portal .system-accounts .table-scroll { margin:0; border:0; border-radius:0; min-height:200px; }
+.system-portal .system-accounts table { width:100%; }
+.system-portal .system-accounts th,.system-portal .system-accounts td { padding:17px 24px; }
+.system-portal .code-text { color:#941b2e; font-weight:600; }
+.system-portal .management-actions { gap:8px; flex-wrap:nowrap; }
+.system-portal .management-actions .btn { min-height:33px; padding:5px 12px; font-size:11px; font-weight:500; }
+.system-portal .badge { border-radius:3px; font-size:11px; font-weight:400; padding:2px 8px; }
+.system-portal .badge.green { background:#eef3f0; color:#3e6c51; }
+.system-portal .badge.red { background:#f0f1f3; color:#69707d; }
+.system-portal .account-pagination { margin:0; padding:14px 24px; border-top:1px solid #dce0e5; display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap; }
+.system-portal .account-pagination-summary,.system-portal .account-page-size,.system-portal .account-page-indicator { font-size:11px; color:#657080; }
+.system-portal .account-pagination .btn { min-height:32px; padding:4px 11px; font-size:11px; }
+.system-portal main>.card:not(.system-accounts) { width:min(700px,100%); margin:0 auto 40px; padding:32px; }
+@media(max-width:760px) { .system-portal .academic-nav button { padding-inline:19px; } .system-portal .account-filters { padding:18px 15px; flex-wrap:wrap; } .system-portal .account-count { padding-inline:15px; } .system-portal .academic-account strong,.system-portal .academic-account small { display:block; font-size:10px; } }
+.academic-portal .student-workspace { padding:0; overflow:hidden; }
+.academic-portal .student-workspace .admin-filter { margin:0; padding:18px 24px; border-bottom:1px solid #dce0e5; background:#fafbfc; gap:12px; }
+.academic-portal .student-workspace .admin-filter label { font-size:11px; }
+.academic-portal .student-workspace .table-scroll { margin:0; border:0; border-radius:0; }
+.academic-portal .student-workspace table { width:100%; }
+.academic-portal .student-workspace table th { padding:15px 18px; font-size:12px; font-weight:600; white-space:nowrap; }
+.academic-portal .student-workspace table td { padding:17px 18px; font-size:12px; }
+.academic-portal .student-workspace .management-actions { gap:6px; flex-wrap:nowrap; }
+.academic-portal .student-workspace .management-actions .btn { min-height:26px; padding:3px 8px; border:0; border-radius:0; background:transparent; color:#941b2e; font-size:12px; font-weight:500; box-shadow:none; }
+.academic-portal .student-workspace .management-actions .btn:hover { background:#fbf1f2; text-decoration:underline; }
+.academic-portal .student-workspace .management-actions .btn:disabled { color:#8b929c; background:transparent; text-decoration:none; cursor:not-allowed; }
+.academic-portal .student-workspace .badge { padding:2px 8px; border-radius:3px; font-size:11px; font-weight:400; line-height:1.5; }
+.academic-portal .student-workspace .badge.green { background:#eef3f0; color:#3e6c51; }
+.academic-portal .student-workspace .table-footer { margin:0; padding:14px 24px; border-top:1px solid #dce0e5; font-size:11px; }
+.academic-portal { --blue:#941b2e; --line:#dce0e5; --muted:#657080; min-height:100dvh; display:flex; flex-direction:column; background:#f5f6f8; color:#252b37; font:15px/1.65 "Be Vietnam Pro","Segoe UI",sans-serif; }
+.academic-portal .academic-container { width:min(1440px,calc(100% - 96px)); margin-inline:auto; }
+.academic-utility { background:#f1f2f5; border-top:4px solid #941b2e; border-bottom:1px solid #e4e6eb; font-size:11px; color:#667080; letter-spacing:.03em; }
+.academic-utility>div { display:flex; justify-content:space-between; align-items:center; min-height:33px; gap:16px; }
+.academic-portal .academic-masthead { display:flex; align-items:center; justify-content:space-between; gap:24px; min-height:130px; background:white; }
+.academic-portal { background:linear-gradient(white 0 167px,#f5f6f8 167px); }
+.academic-identity { display:flex; align-items:center; gap:22px; border:0; background:none; padding:0; text-align:left; }
+.academic-identity img { width:77px; height:89px; object-fit:contain; }
+.academic-identity>span { border-left:1px solid #e3e5e9; padding-left:22px; display:grid; }
+.academic-identity strong { font-size:17px; color:#941b2e; letter-spacing:.035em; }
+.academic-identity b { font:700 27px/1.5 "Noto Serif",Georgia,serif; color:#313746; }
+.academic-identity small { font-size:12px; color:#657080; }
+.academic-account { display:flex; align-items:center; gap:12px; font-size:13px; }
+.academic-avatar { display:grid; place-items:center; width:41px; height:41px; border:1px solid #ead7db; border-radius:50%; background:#fbf1f2; color:#941b2e; }
+.academic-account small { margin:0; font-size:11px; }
+.academic-account>div>div { display:flex; gap:9px; align-items:center; }
+.academic-account button { padding:0; border:0; background:none; color:#657080; font-size:11px; }
+.academic-account button:hover { color:#941b2e; text-decoration:underline; }
+.academic-nav { background:#941b2e; border-top:2px solid #b58b3a; }
+.academic-nav>div { display:flex; justify-content:space-between; overflow-x:auto; }
+.academic-nav button { flex-shrink:0; min-height:55px; padding:0 17px; border:0; border-radius:0; background:none; color:white; font-size:14px; font-weight:500; white-space:nowrap; }
+.academic-nav button:hover { background:#ffffff15; }
+.academic-nav button[aria-current=page] { background:#fff7f7; color:#941b2e; font-weight:700; box-shadow:inset 0 -3px #941b2e; }
+.academic-portal main.academic-container { padding:0 0 32px; max-width:none; min-height:0; flex:1; }
+.academic-breadcrumb { display:flex; gap:12px; align-items:center; min-height:54px; color:#657080; font-size:12px; }
+.academic-portal .page-title { margin:1px 0 26px; }
+.academic-portal .page-title h1 { font:700 29px/1.4 "Noto Serif",Georgia,serif; color:#5e1827; letter-spacing:normal; }
+.academic-portal .page-title p { font-size:13px; color:#657080; margin-top:7px; }
+.academic-portal .card { background:white; border:1px solid #dce0e5; border-radius:4px; box-shadow:none; padding:26px 30px; }
+.academic-portal .btn { border-radius:3px; min-height:42px; padding:9px 18px; font-size:13px; font-weight:600; border-color:#cbd0d8; }
+.academic-portal .btn.primary { background:#941b2e; border-color:#941b2e; color:white; }
+.academic-portal .btn:hover { border-color:#941b2e; }
+.academic-portal .btn.primary:hover { background:#751324; }
+.academic-portal .text-link { color:#941b2e; }
+.academic-portal input,.academic-portal select { border-radius:3px; min-height:43px; border-color:#c8ced6; }
+.academic-portal input:focus,.academic-portal select:focus { border-color:#941b2e; box-shadow:0 0 0 3px #941b2e18; }
+.academic-portal table { font-variant-numeric:tabular-nums; border-collapse:collapse; }
+.academic-portal table th { background:#f7f8fa; color:#626c7b; padding:15px 18px; font-size:12px; }
+.academic-portal table td { padding:17px 18px; border-bottom:1px solid #e9ebef; font-size:12px; }
+.academic-portal tbody tr:hover { background:#fcf8f8; }
+.academic-portal .class-tabs button.active { color:#941b2e; border-color:#941b2e; }
+.academic-portal .academic-footer { display:block; margin:0; padding:0; background:white; border-top:1px solid #dce0e5; }
+.academic-footer>div { display:flex; justify-content:space-between; align-items:center; gap:20px; min-height:66px; font-size:11px; color:#7c8490; }
+.academic-skip { position:fixed; top:-80px; left:16px; padding:12px; background:white; z-index:30; }
+.academic-skip:focus { top:12px; }
+@media(max-width:1100px) { .academic-portal .academic-container { width:calc(100% - 48px); } .academic-nav>div { justify-content:flex-start; } .academic-nav button { padding-inline:15px; font-size:13px; } .academic-identity strong { font-size:14px; } .academic-identity b { font-size:23px; } }
+@media(max-width:760px) { .academic-portal .academic-container { width:calc(100% - 32px); } .academic-portal .academic-masthead { min-height:110px; } .academic-utility { font-size:9px; } .academic-utility>div>span:last-child { display:none; } .academic-identity { gap:11px; } .academic-identity img { width:48px; height:65px; } .academic-identity>span { border:0; padding:0; } .academic-identity strong { font-size:10px; } .academic-identity b { font-size:17px; } .academic-identity small { font-size:9px; } .academic-account { align-items:flex-start; } .academic-avatar { display:none; } .academic-account strong,.academic-account small { display:none; } .academic-account>div>div { flex-direction:column; gap:4px; } .academic-account>div>div>span { display:none; } .academic-nav button { min-height:48px; font-size:12px; } .academic-portal .page-title { flex-wrap:wrap; } .academic-portal .page-title h1 { font-size:25px; } .academic-portal .card { padding:22px 18px; } .academic-footer>div { flex-direction:column; justify-content:center; gap:4px; } }

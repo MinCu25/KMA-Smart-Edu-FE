@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { Download, FileSpreadsheet, Info, X } from "lucide-react";
+import "./admission.css";
 import type {
   AdmissionPreviewResponse,
   AdmissionConfirmResponse,
@@ -8,6 +10,9 @@ import { useAuth } from "../../context/AuthContext";
 import { useUI } from "../../context/UIContext";
 import { message } from "./ActionForm";
 export function Admission() {
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const [guide, setGuide] = useState(false);
   const request = useLiveRequest(),
     { session } = useAuth(),
     { notify } = useUI();
@@ -22,27 +27,30 @@ export function Admission() {
     [fileError, setFileError] = useState("");
   return (
     <>
-      <div className="page-title">
+      <div className="page-title admission-heading">
         <div>
           <h1>Phân luồng nhập học</h1>
           <p>
-            Kiểm tra danh sách → Xem và điều chỉnh lớp → Tạo hồ sơ, tài khoản.
+            Tiếp nhận danh sách trúng tuyển và tổ chức phân lớp đầu khóa.
           </p>
         </div>
-        <a
-          className="btn primary"
-          href={import.meta.env.BASE_URL + "cau-truc-danh-sach-nhap-hoc.xlsx"}
-          download
-        >
-          Tải cấu trúc danh sách
-        </a>
+        <button className="btn" aria-expanded={guide} onClick={() => setGuide(!guide)}>Hướng dẫn nhập danh sách</button>
       </div>
-      <section className="card admissions-card">
-        <h2>1. Danh sách trúng tuyển</h2>
+      {guide && <div className="admission-guide">Tải tệp mẫu, điền đủ 9 cột trong sheet đầu tiên và chọn tệp .xlsx. Kiểm tra kết quả phân lớp, điều chỉnh lớp nếu cần, sau đó xác nhận tạo hồ sơ và tài khoản.</div>}
+      <section className="admission-workspace" aria-label="Quy trình phân luồng nhập học">
+        <ol className="admission-steps">{["Nhập danh sách", "Kiểm tra & phân lớp", "Xác nhận & tạo hồ sơ"].map((label, index) => {
+          const step = result ? 2 : batch ? 1 : 0;
+          return <li key={label} className={index === step ? "active" : index < step ? "done" : ""} aria-current={index === step ? "step" : undefined}><span>0{index + 1}</span>{label}</li>;
+        })}</ol>
+        {!batch && !result && <>
         <fieldset disabled={busy}>
-          <label>
-            Danh sách trúng tuyển (.xlsx)
+          <div className="admission-section-head"><div><h2>Nhập danh sách trúng tuyển</h2><p>Sử dụng tệp Excel theo mẫu của hệ thống.</p></div><a href={import.meta.env.BASE_URL + "cau-truc-danh-sach-nhap-hoc.xlsx"} download><Download size={18} />Tải tệp mẫu (.xlsx)</a></div>
+          <div className="admission-upload-grid"><div>
+          <label htmlFor="admission-file">Tệp danh sách trúng tuyển</label>
             <input
+              ref={fileInput}
+              id="admission-file"
+              hidden
               type="file"
               accept=".xlsx"
               onChange={(e) => {
@@ -53,15 +61,16 @@ export function Admission() {
                 setFileError("");
               }}
             />
-          </label>
-          <p>Các cột trong sheet đầu tiên</p>
-          <p>
-            ma_ho_so · ho_ten · ngay_sinh · gioi_tinh · email · diem_xet_tuyen ·
-            ma_nganh · ma_khoa · he_dao_tao
-          </p>
+          <div className="admission-file-row"><button type="button" className="btn" onClick={() => fileInput.current?.click()}>Chọn tệp Excel</button><span>{file?.name || "Chưa chọn tệp"}</span>{file && <button type="button" aria-label="Bỏ tệp đã chọn" onClick={() => { setFile(undefined); setFileError(""); if (fileInput.current) fileInput.current.value = ""; }}><X size={18} /></button>}</div>
+          <p className="admission-helper">Định dạng được hỗ trợ: .xlsx</p>
+          <div className={"admission-drop-zone " + (dragging ? "dragging" : "")} onDragOver={e => { e.preventDefault(); if (!busy) setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={e => { e.preventDefault(); setDragging(false); if (busy) return; const selected = e.dataTransfer.files[0]; if (selected && !selected.name.toLowerCase().endsWith(".xlsx")) { setFileError("Chỉ hỗ trợ tệp Excel .xlsx."); return; } if (selected) {setFile(selected); setFileError(""); setError("");} }}><FileSpreadsheet size={27} /><span>Có thể kéo thả tệp vào vùng này</span></div>
+          <p className="admission-inline-note"><Info size={17} />Bạn có thể kiểm tra và điều chỉnh trước khi xác nhận.</p>
+          </div><aside className="admission-schema"><h3>Nội dung tệp gồm 9 cột</h3><table><thead><tr><th>Nhóm thông tin</th><th>Trường dữ liệu</th></tr></thead><tbody><tr><td>Hồ sơ</td><td>Mã hồ sơ · Họ tên</td></tr><tr><td>Cá nhân</td><td>Ngày sinh · Giới tính · Email</td></tr><tr><td>Đào tạo</td><td>Điểm xét tuyển · Mã ngành<br />Mã khóa · Hệ đào tạo</td></tr></tbody></table><p className="admission-helper">Giữ nguyên tên cột trong tệp mẫu.</p></aside></div>
           {fileError && <p className="field-error">{fileError}</p>}
+          <div className="admission-work-footer"><div><strong>Bước 1 / 3</strong><p>{file ? "Tệp đã sẵn sàng để kiểm tra" : "Chưa có dữ liệu để kiểm tra"}</p></div>
           <button
             className="btn primary"
+            disabled={!file || busy}
             onClick={async () => {
               if (
                 !file ||
@@ -96,14 +105,16 @@ export function Admission() {
               }
             }}
           >
-            Kiểm tra và phân lớp
+            {busy ? "Đang kiểm tra…" : "Kiểm tra & tiếp tục"}
           </button>
+          </div>
         </fieldset>
-      </section>
+        </>}
       {batch && !result && (
         <section className="card admissions-card">
           <fieldset disabled={busy}>
             <h2>2. Kiểm tra và điều chỉnh</h2>
+            <button type="button" className="btn" onClick={() => {setBatch(undefined); setError("");}}>Quay lại chọn tệp</button>
             <p>
               {batch.fileName} · {batch.totalRows} dòng · {batch.validRows} hồ
               sơ hợp lệ · {batch.errors.length} lỗi
@@ -281,6 +292,8 @@ export function Admission() {
           )}
         </section>
       )}
+      </section>
+      <div className="admission-workflow-caption"><strong>Quy trình xử lý</strong><span>Kiểm tra dữ liệu</span><span>Xem trước kết quả phân lớp</span><span>Xác nhận tạo hồ sơ & tài khoản</span></div>
       {error && (
         <p role="alert" className="field-error">
           {error}

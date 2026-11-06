@@ -1,0 +1,34 @@
+.admission-workspace { background:#fff; border:1px solid #dce0e5; border-radius:4px; overflow:hidden; }
+.admission-steps { display:grid; grid-template-columns:repeat(3,1fr); list-style:none; margin:0; padding:0 24px; border-bottom:1px solid #dce0e5; }
+.admission-steps li { display:flex; align-items:center; gap:14px; min-height:74px; padding:10px 12px; border-bottom:3px solid transparent; color:#8c929b; font-size:14px; font-weight:500; }
+.admission-steps li>span { display:grid; place-items:center; width:30px; height:30px; flex-shrink:0; background:#f0f1f4; border:1px solid #e3e5e9; border-radius:3px; font-size:12px; font-weight:700; }
+.admission-steps li.active { border-color:#941b2e; color:#941b2e; font-weight:700; }
+.admission-steps li.active>span { background:#941b2e; color:white; border-color:#941b2e; }
+.admission-steps li.done { color:#48576c; }
+.admission-workspace>fieldset { margin:0; padding:28px 30px 0; border:0; min-width:0; }
+.admission-section-head { display:flex; justify-content:space-between; gap:20px; margin-bottom:24px; }
+.admission-section-head h2 { font-size:19px; font-weight:700; margin-bottom:4px; }
+.admission-section-head p { font-size:13px; color:#657080; }
+.admission-section-head a { display:flex; align-items:center; gap:8px; align-self:flex-start; font-size:13px; font-weight:600; color:#941b2e; text-decoration:none; }
+.admission-upload-grid { display:grid; grid-template-columns:minmax(0,1.42fr) minmax(0,1fr); gap:32px; }
+.admission-upload-grid label { display:block; font-size:13px; font-weight:600; margin-bottom:10px; }
+.admission-file-row { display:flex; align-items:center; padding:8px; gap:18px; background:#f6f7f9; border:1px solid #cdd2da; border-radius:3px; }
+.admission-file-row>span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:#697181; }
+.admission-file-row>button:last-child:not(:first-child) { background:none; border:0; color:#747b86; }
+.academic-portal .admission-file-row .btn { min-height:35px; padding:5px 15px; font-size:12px; }
+.admission-helper { font-size:11px; color:#737d8b; margin-top:7px; }
+.admission-drop-zone { display:flex; align-items:center; justify-content:center; gap:13px; min-height:96px; padding:16px; border:1px dashed #bfc7d0; margin:21px 0 15px; border-radius:3px; color:#687180; font-size:13px; }
+.admission-drop-zone.dragging { background:#fbf1f2; border-color:#941b2e; }
+.admission-inline-note { display:flex; align-items:center; gap:9px; font-size:11px; color:#687180; }
+.admission-schema { border-left:1px solid #dce0e5; padding-left:30px; }
+.admission-schema h3 { font-size:15px; margin:0 0 12px; }
+.admission-schema table { width:100%; border-collapse:collapse; }
+.academic-portal .admission-schema th,.academic-portal .admission-schema td { border:1px solid #dbe0e6; text-align:left; padding:10px 12px; font-size:11px; }
+.admission-schema td:first-child { white-space:nowrap; font-weight:500; }
+.admission-work-footer { margin:28px -30px 0; padding:17px 30px; background:#f7f8fa; border-top:1px solid #dce0e5; display:flex; align-items:center; justify-content:space-between; gap:20px; }
+.admission-work-footer strong { font-size:13px; }
+.admission-work-footer p { font-size:11px; color:#657080; margin-top:2px; }
+.admission-workflow-caption { display:flex; gap:30px; flex-wrap:wrap; align-items:center; font-size:11px; color:#748092; padding:21px 4px 30px; }
+.admission-workflow-caption strong { font-size:12px; color:#50596a; }
+.admission-guide { padding:16px 22px; margin-bottom:20px; background:white; border-left:3px solid #b58b3a; font-size:13px; }
+@media(max-width:760px) { .admission-steps { padding-inline:8px; } .admission-steps li { font-size:10px; gap:7px; padding:9px 5px; min-height:65px; } .admission-steps li>span { width:24px; height:24px; } .admission-workspace>fieldset { padding:22px 18px 0; } .admission-upload-grid { grid-template-columns:1fr; gap:28px; } .admission-section-head { flex-direction:column; } .admission-schema { border-left:0; border-top:1px solid #dce0e5; padding:22px 0 0; } .admission-work-footer { margin-inline:-18px; padding:16px 18px; } .admission-workflow-caption { gap:12px; } .admission-workflow-caption strong { width:100%; } }

@@ -1,10 +1,14 @@
 import { X } from "lucide-react";
 import { useUI } from "../../context/UIContext";
+import { useAuth } from "../../context/AuthContext";
+import "./admin-dialog.css";
 export function AppDialog() {
   const { dialog, setDialog, notifyError } = useUI();
+  const { role } = useAuth();
+  const admin = role === "academic-admin" || role === "system-admin";
   if (!dialog) return null;
   return (
-    <div className="dialog-backdrop" onClick={() => setDialog(null)}>
+    <div className={"dialog-backdrop" + (admin ? " admin-dialog-backdrop" : "")} onClick={() => setDialog(null)}>
       <section
         className="dialog"
         role="dialog"

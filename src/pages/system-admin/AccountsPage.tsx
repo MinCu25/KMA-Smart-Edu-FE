@@ -165,7 +165,7 @@ function AccountScreen({
           <p>Tra cứu, khóa, mở khóa và đặt lại mật khẩu.</p>
         </div>
       </div>
-      <section className="card">
+      <section className="card system-accounts">
         <div className="management-toolbar account-filters">
           <label>
             Tìm kiếm

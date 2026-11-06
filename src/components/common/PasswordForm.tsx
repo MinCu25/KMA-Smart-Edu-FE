@@ -5,8 +5,11 @@ import { useUI } from "../../context/UIContext";
 import { useFormErrors } from "../../hooks/useFormErrors";
 import { validatePasswordForm } from "../../utils/profileValidation";
 import { Card } from "./Card";
+import "./password-form.css";
 export function PasswordForm() {
-  const { changePassword, session } = useAuth();
+  const { changePassword, session, role } = useAuth();
+  const admin = role === "academic-admin" || role === "system-admin";
+  const [visible, setVisible] = useState<Record<string, boolean>>({});
   const { notify } = useUI();
   const [pending, setPending] = useState(false);
   const form = useFormErrors((f) => {
@@ -22,7 +25,9 @@ export function PasswordForm() {
     return errors;
   });
   return (
-    <Card title="Đổi mật khẩu">
+    <>
+    {admin && <div className="page-title"><div><h1>Đổi mật khẩu</h1><p>Cập nhật mật khẩu cho tài khoản {role === "system-admin" ? "Admin hệ thống" : "Admin học vụ"}.</p></div></div>}
+    <Card title={admin ? "Thông tin mật khẩu" : "Đổi mật khẩu"} className={admin ? "admin-password-panel" : ""}>
       {session?.requirePasswordChange && (
         <p className="notice yellow">
           Vui lòng đặt mật khẩu mới trước khi tiếp tục sử dụng hệ thống.
@@ -30,6 +35,7 @@ export function PasswordForm() {
       )}
       <form
         noValidate
+        onReset={() => { form.reset(); setVisible({}); }}
         onChange={form.onChange}
         onSubmit={async (e) => {
           e.preventDefault();
@@ -74,9 +80,10 @@ export function PasswordForm() {
             .map(([name, label]) => (
               <label key={name}>
                 {label}
+                <div className={admin ? "admin-password-control" : ""}>
                 <input
                   name={name}
-                  type="password"
+                  type={visible[name] ? "text" : "password"}
                   disabled={pending}
                   autoComplete={
                     name === "currentPassword"
@@ -85,6 +92,8 @@ export function PasswordForm() {
                   }
                   {...form.props(name)}
                 />
+                {admin && <button type="button" disabled={pending} aria-label={(visible[name] ? "Ẩn " : "Hiện ") + label.toLowerCase()} aria-pressed={!!visible[name]} onClick={() => setVisible(current => ({...current, [name]: !current[name]}))}>{visible[name] ? "Ẩn" : "Hiện"}</button>}
+                </div>
                 {!!form.errors[name]?.length && (
                   <div
                     id={`${name}-error`}
@@ -104,10 +113,14 @@ export function PasswordForm() {
             {form.formError}
           </p>
         )}
+        <div className={admin ? "admin-password-actions" : ""}>
+        {admin && <button type="reset" className="btn" disabled={pending}>Xóa nội dung</button>}
         <button className="btn primary" disabled={pending}>
           {pending ? "Đang lưu…" : "Đổi mật khẩu"}
         </button>
+        </div>
       </form>
     </Card>
+    </>
   );
 }

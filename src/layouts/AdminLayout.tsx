@@ -23,6 +23,7 @@ import {
   roleHome,
 } from "../config/navigation";
 import type { PageProps, Page, Role } from "../types/navigation";
+import "./academic-portal.css";
 type Props = PageProps & {
   children: ReactNode;
   onLogout: () => void;
@@ -61,6 +62,26 @@ export default function AdminLayout({
     ClipboardList,
     Settings,
   ];
+  if (role === "academic-admin" || role === "system-admin") {
+    const system = role === "system-admin";
+    const labels: Record<string, string> = { admissions: "Nhập học", admin: "Sinh viên", teachers: "Giảng viên", subjects: "Học phần", classes: "Lớp học phần", rooms: "Phòng học", terms: "Kỳ học & đăng ký", "academic-timetable": "Thời khóa biểu", knowledge: "Tri thức AI" };
+    return (
+      <div className={"academic-portal management-app" + (system ? " system-portal" : "")}>
+        <a className="academic-skip" href="#academic-content">Bỏ qua điều hướng</a>
+        <div className="academic-utility"><div className="academic-container"><span>KMA SMART EDU / {system ? "QUẢN TRỊ HỆ THỐNG" : "QUẢN TRỊ HỌC VỤ"}</span><span>Không gian quản lý đào tạo</span></div></div>
+        <header className="academic-masthead academic-container">
+          <button className="academic-identity" onClick={() => onNavigate(system ? "accounts" : "admissions")}>
+            <img src={`${import.meta.env.BASE_URL}home/assets/logo.png`} alt="Huy hiệu Học viện Kỹ thuật Mật mã" />
+            <span><strong>HỌC VIỆN KỸ THUẬT MẬT MÃ</strong><b>Hệ thống quản lý đào tạo</b><small>Academy of Cryptography Techniques</small></span>
+          </button>
+          <div className="academic-account"><span className="academic-avatar">{system ? "HT" : "HV"}</span><div><strong>{session?.user.fullName || session?.user.username || roleNames[role]}</strong><small>{roleNames[role]}</small>{!system && <div><button onClick={() => onNavigate("academic-password")}>Đổi mật khẩu</button><span>·</span><button onClick={onLogout}>Đăng xuất</button></div>}</div></div>
+        </header>
+        <nav className="academic-nav" aria-label={system ? "Quản trị hệ thống" : "Các chức năng học vụ"}><div className="academic-container">{menu.filter(item => item.id !== "academic-password").map(item => <button key={item.id} aria-current={page === item.id ? "page" : undefined} onClick={() => onNavigate(item.id)}>{labels[item.id] || item.label}</button>)}{system && <button onClick={onLogout}>Đăng xuất</button>}</div></nav>
+        <main id="academic-content" className="academic-container" tabIndex={-1}><div className="academic-breadcrumb"><span>{system ? "Admin hệ thống" : "Học vụ"}</span><span>/</span><span>{menu.find(item => item.id === page)?.label}</span></div>{children}</main>
+        <footer className="academic-footer"><div className="academic-container"><span>© 2026 Học viện Kỹ thuật Mật mã</span><span>KMA Smart Edu · {system ? "Quản trị hệ thống" : "Quản trị đào tạo"}</span></div></footer>
+      </div>
+    );
+  }
   return (
     <div
       className={"app admin-app management-app " + (open ? "sidebar-open" : "")}
@@ -122,8 +143,6 @@ export default function AdminLayout({
             <span className="staff-avatar">
               {role === "lecturer"
                 ? "QH"
-                : role === "system-admin"
-                  ? "HT"
                   : "HV"}
             </span>
             <span>

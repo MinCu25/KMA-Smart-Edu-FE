@@ -328,7 +328,7 @@ function RoomsScreen({ store }: { store: RoomsStore }) {
           Thêm phòng học
         </button>
       </div>
-      <section className="card">
+      <section className="card student-workspace">
         <form
           noValidate
           className="admin-filter"
@@ -448,7 +448,7 @@ function RoomsScreen({ store }: { store: RoomsStore }) {
                         )}
                       </td>
                     ))}
-                    <td>{statusText(r.status)}</td>
+                    <td><span className={"badge " + (r.status === "ACTIVE" ? "green" : "gray")}>{statusText(r.status)}</span></td>
                     <td>
                       <div className="management-actions">
                         <button

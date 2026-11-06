@@ -224,7 +224,7 @@ export function ListPage({ page }: { page: string }) {
           </p>
         </section>
       ) : (
-        <section className={page === "admin" ? "card admin-card" : "card"}>
+        <section className={page === "admin" ? "card admin-card student-workspace" : ["teachers", "subjects"].includes(page) ? "card student-workspace" : "card"}>
           <form
             className="admin-filter"
             key={query}
@@ -333,9 +333,9 @@ export function ListPage({ page }: { page: string }) {
               <thead>
                 <tr>
                   {cols.map((k) => (
-                    <th key={k}>{names[k]}</th>
+                    <th key={k}>{page === "admin" && k === "activityStatus" ? "Trạng thái" : names[k]}</th>
                   ))}
-                  {page !== "teachers" && <th>Thao tác</th>}
+                  <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -368,10 +368,10 @@ export function ListPage({ page }: { page: string }) {
                         )}
                       </td>
                     ))}
-                    {page !== "teachers" && (
+                    {(
                       <td>
                         <div className="management-actions">
-                          {page === "admin" && (
+                          {["admin", "teachers"].includes(page) && (
                             <button className="btn" onClick={() => open(r)}>
                               Xem
                             </button>

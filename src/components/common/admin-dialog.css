@@ -1,0 +1,12 @@
+/* Shared confirmations render outside the admin layout; theme them explicitly. */
+.admin-dialog-backdrop { background:rgb(23 29 43 / 40%); font-family:"Be Vietnam Pro","Segoe UI",sans-serif; }
+.admin-dialog-backdrop .dialog { width:min(580px,calc(100% - 32px)); border:1px solid #dce0e5; border-radius:5px; padding:25px; background:#fff; color:#252b37; box-shadow:0 20px 80px #17243924; }
+.admin-dialog-backdrop .dialog h2 { font:600 20px/1.5 "Noto Serif",Georgia,serif; color:#751324; padding:0 30px 18px 0; margin:0 0 20px; border-bottom:1px solid #dce0e5; }
+.admin-dialog-backdrop .dialog>p { color:#657080; font-size:13px; line-height:1.8; }
+.admin-dialog-backdrop .close-dialog { border:0; background:none; color:#79818c; }
+.admin-dialog-backdrop .dialog-actions { margin-top:24px; gap:10px; }
+.admin-dialog-backdrop .btn { min-height:42px; border:1px solid #cbd0d8; border-radius:3px; padding:9px 18px; background:#fff; color:#252b37; font-size:13px; font-weight:600; }
+.admin-dialog-backdrop .btn:hover { border-color:#941b2e; color:#941b2e; background:#fbf1f2; }
+.admin-dialog-backdrop .btn.primary { background:#941b2e; border-color:#941b2e; color:white; }
+.admin-dialog-backdrop .btn.primary:hover { background:#751324; border-color:#751324; }
+.admin-dialog-backdrop button:focus-visible { outline:3px solid #b98532; outline-offset:3px; }
