@@ -13,6 +13,7 @@ export function Admission() {
   const fileInput = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [guide, setGuide] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const request = useLiveRequest(),
     { session } = useAuth(),
     { notify } = useUI();
@@ -39,7 +40,7 @@ export function Admission() {
       {guide && <div className="admission-guide">Tải tệp mẫu, điền đủ 9 cột trong sheet đầu tiên và chọn tệp .xlsx. Kiểm tra kết quả phân lớp, điều chỉnh lớp nếu cần, sau đó xác nhận tạo hồ sơ và tài khoản.</div>}
       <section className="admission-workspace" aria-label="Quy trình phân luồng nhập học">
         <ol className="admission-steps">{["Nhập danh sách", "Kiểm tra & phân lớp", "Xác nhận & tạo hồ sơ"].map((label, index) => {
-          const step = result ? 2 : batch ? 1 : 0;
+          const step = result || reviewing ? 2 : batch ? 1 : 0;
           return <li key={label} className={index === step ? "active" : index < step ? "done" : ""} aria-current={index === step ? "step" : undefined}><span>0{index + 1}</span>{label}</li>;
         })}</ol>
         {!batch && !result && <>
@@ -110,7 +111,7 @@ export function Admission() {
           </div>
         </fieldset>
         </>}
-      {batch && !result && (
+      {batch && !result && !reviewing && (
         <section className="card admissions-card">
           <fieldset disabled={busy}>
             <h2>2. Kiểm tra và điều chỉnh</h2>
@@ -234,6 +235,19 @@ export function Admission() {
                   </div>
                 </section>
               ))}
+            <div className="admission-review-actions"><p>Kiểm tra phân lớp trước khi chuyển sang xác nhận. Chưa tạo hồ sơ sinh viên ở bước này.</p><button type="button" className="btn primary" disabled={busy || !batch.validRows} onClick={() => { setReviewing(true); accept(false); setError(""); }}>Tiếp tục đến xác nhận hồ sơ</button></div>
+          </fieldset>
+        </section>
+      )}
+      {batch && !result && reviewing && (
+        <section className="card admissions-card">
+          <fieldset disabled={busy}>
+            <h2>3. Xác nhận hồ sơ nhập học</h2>
+            <p>Tệp: {batch.fileName} · {batch.totalRows} dòng · {batch.validRows} hồ sơ hợp lệ · {batch.errors.length} lỗi.</p>
+            <p>Kiểm tra danh sách và lớp được phân bổ bên dưới. Chỉ khi nhấn “Xác nhận tạo hồ sơ và tài khoản”, hệ thống mới thực hiện nhập học.</p>
+            <div className="table-scroll"><table className="management-table"><thead><tr><th>Mã hồ sơ</th><th>Họ tên</th><th>Email</th><th>Lớp xác nhận</th></tr></thead><tbody>{batch.classes.flatMap(c => c.students.map(s => <tr key={s.applicationCode}><td>{s.applicationCode}</td><td>{s.fullName}</td><td>{s.email}</td><td>{c.className}</td></tr>))}</tbody></table></div>
+            {batch.errors.length > 0 && <p className="field-error">Các dòng không hợp lệ sẽ không được tạo hồ sơ. Quay lại bước 2 để xem chi tiết lỗi.</p>}
+            {[...batch.capacityWarnings, ...batch.duplicateNameWarnings].map((warning, index) => <p key={index}>{warning}</p>)}
             {batch.capacityWarnings.length > 0 && (
               <label>
                 <input
@@ -245,10 +259,12 @@ export function Admission() {
               </label>
             )}
             <p>Chỉ {batch.validRows} hồ sơ hợp lệ sẽ được tạo tài khoản.</p>
+            <button type="button" className="btn" disabled={busy} onClick={() => { setReviewing(false); accept(false); setError(""); }}>Quay lại kiểm tra và phân lớp</button>
             <button
+              type="button"
               className="btn primary"
               disabled={
-                !batch.validRows ||
+                busy || !batch.validRows ||
                 (batch.capacityWarnings.length > 0 && !accepted)
               }
               onClick={async () => {
@@ -273,7 +289,7 @@ export function Admission() {
                 }
               }}
             >
-              Xác nhận tạo hồ sơ và tài khoản
+              {busy ? "Đang tạo hồ sơ…" : "Xác nhận tạo hồ sơ và tài khoản"}
             </button>
           </fieldset>
         </section>

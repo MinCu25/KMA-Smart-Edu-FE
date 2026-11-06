@@ -1,4 +1,5 @@
 import { useAuth } from "../context/AuthContext";
+import StudentLayout from "./StudentLayout";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutDashboard,
@@ -62,6 +63,7 @@ export default function AdminLayout({
     ClipboardList,
     Settings,
   ];
+  if (role === "lecturer") return <StudentLayout page={page} onNavigate={onNavigate} onLogout={onLogout}>{children}</StudentLayout>;
   if (role === "academic-admin" || role === "system-admin") {
     const system = role === "system-admin";
     const labels: Record<string, string> = { admissions: "Nhập học", admin: "Sinh viên", teachers: "Giảng viên", subjects: "Học phần", classes: "Lớp học phần", rooms: "Phòng học", terms: "Kỳ học & đăng ký", "academic-timetable": "Thời khóa biểu", knowledge: "Tri thức AI" };
@@ -141,9 +143,7 @@ export default function AdminLayout({
           </div>
           <div className="staff-account">
             <span className="staff-avatar">
-              {role === "lecturer"
-                ? "QH"
-                  : "HV"}
+              HV
             </span>
             <span>
               <b>{session?.user.fullName || session?.user.username}</b>

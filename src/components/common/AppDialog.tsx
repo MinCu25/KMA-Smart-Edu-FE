@@ -5,7 +5,7 @@ import "./admin-dialog.css";
 export function AppDialog() {
   const { dialog, setDialog, notifyError } = useUI();
   const { role } = useAuth();
-  const admin = role === "academic-admin" || role === "system-admin" || role === "student";
+  const admin = role === "academic-admin" || role === "system-admin" || role === "student" || role === "lecturer";
   if (!dialog) return null;
   return (
     <div className={"dialog-backdrop" + (admin ? " admin-dialog-backdrop" : "")} onClick={() => setDialog(null)}>

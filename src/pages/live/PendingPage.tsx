@@ -48,6 +48,7 @@ const pages: Record<
     title: "Lớp học phần của tôi",
     section: "Lớp được phân công",
     filters: ["Kỳ học"],
+    columns: ["Mã lớp học phần", "Học phần", "Sĩ số", "Lịch học", "Phòng học", "Thao tác"],
   },
   "teaching-schedule": {
     title: "Lịch giảng dạy",
