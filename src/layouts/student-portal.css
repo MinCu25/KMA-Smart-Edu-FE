@@ -1,0 +1,15 @@
+.student-portal .academic-nav>div { justify-content:flex-start; }
+.student-portal .academic-nav button { padding-inline:20px; }
+.student-portal .academic-nav button:disabled { color:#e0bcc2; cursor:not-allowed; }
+.student-portal .academic-account strong,.student-portal .academic-account small { display:block; }
+.student-portal .card { margin-bottom:24px; }
+.student-portal .card-heading h2 { color:#751324; font-family:"Noto Serif",Georgia,serif; }
+.student-portal .empty-state { padding:48px 20px; color:#657080; font-size:13px; line-height:1.8; }
+.student-portal .management-toolbar { display:flex; gap:16px; flex-wrap:wrap; padding-bottom:20px; }
+.student-portal .management-toolbar label { min-width:180px; }
+.student-portal .register-layout { display:grid; grid-template-columns:minmax(0,2.4fr) minmax(240px,1fr); gap:24px; }
+.student-portal .chat-tabs { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
+.student-portal .chat-tabs button { padding:10px 16px; background:white; border:1px solid #dce0e5; color:#657080; border-radius:3px; }
+.student-portal .chat-tabs button.selected { color:#941b2e; border-color:#941b2e; background:#fbf1f2; }
+.student-portal .notice.yellow { padding:14px 18px; background:#fff7e8; color:#795b25; border-left:3px solid #b58b3a; margin-bottom:22px; font-size:13px; }
+@media(max-width:760px) { .student-portal .register-layout { grid-template-columns:1fr; } .student-portal .academic-account { max-width:105px; overflow-wrap:anywhere; } .student-portal .academic-account strong { font-size:11px; } .student-portal .academic-account small { font-size:9px; } }

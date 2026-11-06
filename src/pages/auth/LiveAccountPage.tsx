@@ -66,6 +66,7 @@ export function LiveAccountPage({
   onNavigate,
 }: { page: Page } & PageProps) {
   if (page === "profile") return <StudentProfile />;
+  if (page === "academic") return <><StudentProfile /><PendingPage page="academic" onNavigate={onNavigate} /></>;
   if (page === "rooms") return <LiveRoomsPage />;
   if (page === "accounts") return <LiveAccounts />;
   if (page === "admissions") return <Admission />;

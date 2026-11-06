@@ -170,10 +170,6 @@ function HomeLogin({ onNavigate }: PageProps) {
           {error}
         </p>
       )}
-      <p className="login-note">
-        Sử dụng tài khoản được cấp. Hệ thống mở giao diện theo quyền tài khoản
-        sau khi đăng nhập.
-      </p>
     </form>
   );
 }

@@ -8,7 +8,7 @@ import { Card } from "./Card";
 import "./password-form.css";
 export function PasswordForm() {
   const { changePassword, session, role } = useAuth();
-  const admin = role === "academic-admin" || role === "system-admin";
+  const admin = role === "academic-admin" || role === "system-admin" || role === "student";
   const [visible, setVisible] = useState<Record<string, boolean>>({});
   const { notify } = useUI();
   const [pending, setPending] = useState(false);
@@ -26,7 +26,7 @@ export function PasswordForm() {
   });
   return (
     <>
-    {admin && <div className="page-title"><div><h1>Đổi mật khẩu</h1><p>Cập nhật mật khẩu cho tài khoản {role === "system-admin" ? "Admin hệ thống" : "Admin học vụ"}.</p></div></div>}
+    {admin && <div className="page-title"><div><h1>{session?.requirePasswordChange ? "Đổi mật khẩu lần đầu" : "Đổi mật khẩu"}</h1><p>Cập nhật mật khẩu cho tài khoản {role === "system-admin" ? "Admin hệ thống" : role === "student" ? "Sinh viên" : "Admin học vụ"}.</p></div></div>}
     <Card title={admin ? "Thông tin mật khẩu" : "Đổi mật khẩu"} className={admin ? "admin-password-panel" : ""}>
       {session?.requirePasswordChange && (
         <p className="notice yellow">
