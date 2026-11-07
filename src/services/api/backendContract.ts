@@ -2,6 +2,47 @@ import { API_URLS } from "../../../docs/fe-api-contract";
 export * from "../../../docs/fe-api-contract";
 
 export const ENDPOINTS = {
+  admissionConfiguration: {
+    method: "GET",
+    url: "/api/v1/student-admissions/configuration",
+  },
+  admissionPlanCreate: {
+    method: "POST",
+    url: "/api/v1/student-admissions/plans",
+  },
+  admissionPlanImport: {
+    method: "POST",
+    url: "/api/v1/student-admissions/plans/import",
+  },
+  admissionPlanGet: {
+    method: "GET",
+    url: (id: number) => `/api/v1/student-admissions/plans/${id}`,
+  },
+  admissionApplicants: {
+    method: "POST",
+    url: (id: number) => `/api/v1/student-admissions/plans/${id}/applicants`,
+  },
+  admissionAllocation: {
+    method: "POST",
+    url: (id: number) =>
+      `/api/v1/student-admissions/plans/${id}/allocation/preview`,
+  },
+  admissionAllocationAdjust: {
+    method: "PATCH",
+    url: (id: number) => `/api/v1/student-admissions/plans/${id}/allocation`,
+  },
+  admissionPlanConfirm: {
+    method: "POST",
+    url: (id: number) => `/api/v1/student-admissions/plans/${id}/confirm`,
+  },
+  admissionNotifications: {
+    method: "GET",
+    url: (id: number) => `/api/v1/student-admissions/plans/${id}/notifications`,
+  },
+  admissionPrepareClasses: {
+    method: "POST",
+    url: "/api/v1/administrative-classes/from-admission-plan",
+  },
   authLogin: { method: "POST", url: API_URLS.auth.login },
   authLogout: { method: "POST", url: API_URLS.auth.logout },
   authChangePassword: { method: "POST", url: API_URLS.auth.changePassword },

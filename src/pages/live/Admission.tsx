@@ -1,320 +1,1139 @@
-import { useRef, useState } from "react";
-import { Download, FileSpreadsheet, Info, X } from "lucide-react";
-import "./admission.css";
-import type {
-  AdmissionPreviewResponse,
-  AdmissionConfirmResponse,
-} from "../../services/api/backendContract";
+import { useEffect, useState } from "react";
+import {
+  Download,
+  RefreshCw,
+  FileSpreadsheet,
+  CheckCircle2,
+  Mail,
+  Clock3,
+  AlertCircle,
+} from "lucide-react";
 import { useLiveRequest } from "./client";
 import { useAuth } from "../../context/AuthContext";
-import { useUI } from "../../context/UIContext";
+import { ApiError } from "../../services/api/httpClient";
+import type {
+  AdmissionPlan,
+  AdmissionConfirmation,
+  AdmissionNotification,
+  Capacity,
+} from "../../services/api/admissionTypes";
 import { message } from "./ActionForm";
+import "./admission.css";
+
+const states: Record<string, string> = {
+  DRAFT: "Bản nháp",
+  CLASSES_READY: "Đã chuẩn bị lớp",
+  PREVIEWED: "Đã phân bổ",
+  CONFIRMING: "Đang xác nhận",
+  PARTIALLY_CONFIRMED: "Hoàn tất một phần",
+  CONFIRMED: "Đã nhập học",
+  VALID: "Hợp lệ",
+  INVALID: "Không hợp lệ",
+  CONFLICT: "Mâu thuẫn",
+  EXISTING: "Đã tồn tại",
+  ENROLLED: "Đã nhập học",
+  FAILED: "Thất bại",
+  PENDING: "Chờ gửi",
+  SENT: "Đã gửi",
+  PROCESSING: "Đang gửi",
+};
 export function Admission() {
-  const fileInput = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
-  const [guide, setGuide] = useState(false);
-  const [reviewing, setReviewing] = useState(false);
-  const request = useLiveRequest(),
-    { session } = useAuth(),
-    { notify } = useUI();
-  const [batch, setBatch] = useState<AdmissionPreviewResponse>(),
-    [result, setResult] = useState<AdmissionConfirmResponse>(),
-    [busy, setBusy] = useState(false),
-    [file, setFile] = useState<File>(),
-    [error, setError] = useState(""),
-    [accepted, accept] = useState(false),
-    [classId, filter] = useState(""),
-    [name, search] = useState(""),
-    [fileError, setFileError] = useState("");
+  const request = useLiveRequest();
+  const { session, clearSession } = useAuth();
+  const [plan, setPlan] = useState<AdmissionPlan>();
+  const [result, setResult] = useState<AdmissionConfirmation>();
+  const [notifications, setNotifications] = useState<AdmissionNotification[]>();
+  const [notificationError, setNotificationError] = useState("");
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [capacity, setCapacity] = useState<Record<keyof Capacity, string>>();
+  const [majorId, setMajor] = useState("");
+  const [cohortId, setCohort] = useState("");
+  const [total, setTotal] = useState("");
+  const [entryMode, setEntryMode] = useState<"file" | "estimate">("file");
+  const [planId, setPlanId] = useState(
+    () => sessionStorage.getItem("admission-plan-id") || "",
+  );
+  const [file, setFile] = useState<File>();
+  const [showUpload, setShowUpload] = useState(false);
+  const [count, setCount] = useState(0);
+  const [reserve, setReserve] = useState(false);
+  const [below, setBelow] = useState(false);
+  const [reason, setReason] = useState("");
+  const [review, setReview] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [classFilter, setClassFilter] = useState("");
+  useEffect(() => {
+    let active = true;
+    request<Capacity>("admissionConfiguration")
+      .then((c) => {
+        if (active)
+          setCapacity({
+            minimum: String(c.minimum),
+            maximum: String(c.maximum),
+            reserve: String(c.reserve),
+          });
+      })
+      .catch((e) => {
+        if (active) setError(message(e));
+      });
+    return () => {
+      active = false;
+    };
+  }, [request]);
+  function update(p: AdmissionPlan) {
+    setShowUpload(false);
+    setFile(undefined);
+    setPlan(p);
+    setPlanId(String(p.id));
+    sessionStorage.setItem("admission-plan-id", String(p.id));
+    setCount(
+      p.selectedClassCount ??
+        p.scenarios.find((s) => s.recommended)?.classCount ??
+        p.scenarios[0]?.classCount ??
+        0,
+    );
+    setReview(false);
+    // Keep the accepted exceptions while working on the same plan.
+    // Opening a different plan starts a separate confirmation.
+    if (p.id !== plan?.id) {
+      setReserve(false);
+      setBelow(false);
+      setReason("");
+    }
+    setResult(undefined);
+    setNotifications(undefined);
+  }
+  async function run(action: () => Promise<void>) {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await action();
+    } catch (e) {
+      setError(
+        message(e) +
+          (e instanceof ApiError && e.status === 409
+            ? " Hãy tải lại phương án trước khi tiếp tục."
+            : ""),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  function upload() {
+    if (!file || !file.size || !/\.xlsx$/i.test(file.name))
+      throw Error("Chọn tệp Excel .xlsx có dữ liệu.");
+    if (file.size > 10 * 1024 * 1024) throw Error("Tệp tối đa 10 MB.");
+    const form = new FormData();
+    form.set("file", file);
+    return form;
+  }
+  function scope() {
+    if (
+      ![majorId, cohortId].every(
+        (v) => Number.isSafeInteger(Number(v)) && Number(v) > 0,
+      )
+    )
+      throw Error("Nhập ID ngành và khóa hợp lệ.");
+    if (
+      !capacity ||
+      Number(capacity.minimum) < 1 ||
+      Number(capacity.maximum) > 99 ||
+      Number(capacity.minimum) > Number(capacity.maximum) ||
+      Number(capacity.reserve) < 0 ||
+      Number(capacity.reserve) > 98 ||
+      !Object.values(capacity).every(
+        (value) => value.trim() !== "" && Number.isInteger(Number(value)),
+      )
+    )
+      throw Error(
+        "Kiểm tra cấu hình sĩ số: tối thiểu ≤ tối đa (1–99), dự bị 0–98.",
+      );
+    return {
+      majorId: Number(majorId),
+      cohortId: Number(cohortId),
+      minCapacity: Number(capacity.minimum),
+      maxCapacity: Number(capacity.maximum),
+      reserveCapacity: Number(capacity.reserve),
+    };
+  }
+  const editable = plan && !["CONFIRMED", "CONFIRMING"].includes(plan.state);
+  const scenario = plan?.scenarios.find((s) => s.classCount === count);
+  const hasEnrolled = plan?.applicants.some((a) => a.state === "ENROLLED");
+  const notificationPlanId =
+    plan && (hasEnrolled || plan.state === "CONFIRMED") ? plan.id : undefined;
+  useEffect(() => {
+    if (!notificationPlanId) return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    setLoadingNotifications(true);
+    setNotificationError("");
+    async function refresh() {
+      try {
+        const items = await request<AdmissionNotification[]>(
+          "admissionNotifications",
+          notificationPlanId,
+        );
+        if (!active) return;
+        setNotifications(items);
+        setNotificationError("");
+        // Failed deliveries may still be retried by the mail worker.
+        if (
+          !items.length ||
+          items.some(
+            (item) =>
+              ["PENDING", "PROCESSING"].includes(item.state) ||
+              (item.state === "FAILED" && item.failureCount < 4),
+          )
+        ) {
+          timer = setTimeout(() => void refresh(), 5000);
+        }
+      } catch (e) {
+        if (active) setNotificationError(message(e));
+      } finally {
+        if (active) setLoadingNotifications(false);
+      }
+    }
+    void refresh();
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [notificationPlanId, request]);
+  const eligible =
+    plan?.applicants.filter((a) => ["VALID", "FAILED"].includes(a.state)) ?? [];
+  const rows =
+    plan?.applicants.filter(
+      (a) =>
+        (!classFilter || String(a.assignedClassId) === classFilter) &&
+        `${a.fullName} ${a.applicationCode} ${a.email}`
+          .toLocaleLowerCase("vi")
+          .includes(query.trim().toLocaleLowerCase("vi")),
+    ) ?? [];
+  // Confirmation uses the actual assignments, including already enrolled applicants.
+  const projectedSizes =
+    plan?.classes.map(
+      (c) =>
+        plan.applicants.filter(
+          (a) =>
+            ["VALID", "FAILED", "ENROLLED"].includes(a.state) &&
+            a.assignedClassId === c.id,
+        ).length,
+    ) ?? [];
+  const needsReserve = review
+    ? projectedSizes.some((size) => size > plan!.capacity.maximum)
+    : (scenario?.reserveUsed ?? 0) > 0;
+  const needsBelowMinimum = review
+    ? projectedSizes.some((size) => size < plan!.capacity.minimum)
+    : scenario?.belowMinimum === true;
+  const needsException = needsReserve || needsBelowMinimum;
+  const emailSent =
+    notifications?.filter((n) => n.state === "SENT").length ?? 0;
+  const emailFailed =
+    notifications?.filter((n) => n.state === "FAILED").length ?? 0;
+  const emailWaiting =
+    notifications?.filter((n) => ["PENDING", "PROCESSING"].includes(n.state))
+      .length ?? 0;
+  const emailSkipped =
+    notifications?.filter((n) => n.state === "SKIPPED").length ?? 0;
+  const allEmailsSent =
+    !!notifications?.length && emailSent === notifications.length;
+  const acceptance = needsException ? (
+    <div className="admission-acceptance">
+      <div className="admission-acceptance-title">
+        Ngoại lệ sĩ số{" "}
+        <small>Chỉ chọn khi phương án cần sử dụng ngoại lệ.</small>
+      </div>
+      {needsReserve && (
+        <label className="check-line">
+          <input
+            type="checkbox"
+            checked={reserve}
+            onChange={(e) => setReserve(e.target.checked)}
+          />
+          Chấp nhận sử dụng suất dự bị
+        </label>
+      )}
+      {needsBelowMinimum && (
+        <label className="check-line">
+          <input
+            type="checkbox"
+            checked={below}
+            onChange={(e) => setBelow(e.target.checked)}
+          />
+          Chấp nhận lớp dưới sĩ số tối thiểu
+        </label>
+      )}
+      {((needsReserve && reserve) || (needsBelowMinimum && below)) && (
+        <label>
+          Lý do ngoại lệ
+          <input
+            maxLength={500}
+            required
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Bắt buộc khi chấp nhận ngoại lệ"
+          />
+        </label>
+      )}
+    </div>
+  ) : null;
   return (
     <>
       <div className="page-title admission-heading">
         <div>
           <h1>Phân luồng nhập học</h1>
-          <p>
-            Tiếp nhận danh sách trúng tuyển và tổ chức phân lớp đầu khóa.
-          </p>
+          <p>Lập phương án, tổ chức lớp và xác nhận nhập học đầu khóa.</p>
         </div>
-        <button className="btn" aria-expanded={guide} onClick={() => setGuide(!guide)}>Hướng dẫn nhập danh sách</button>
       </div>
-      {guide && <div className="admission-guide">Tải tệp mẫu, điền đủ 9 cột trong sheet đầu tiên và chọn tệp .xlsx. Kiểm tra kết quả phân lớp, điều chỉnh lớp nếu cần, sau đó xác nhận tạo hồ sơ và tài khoản.</div>}
-      <section className="admission-workspace" aria-label="Quy trình phân luồng nhập học">
-        <ol className="admission-steps">{["Nhập danh sách", "Kiểm tra & phân lớp", "Xác nhận & tạo hồ sơ"].map((label, index) => {
-          const step = result || reviewing ? 2 : batch ? 1 : 0;
-          return <li key={label} className={index === step ? "active" : index < step ? "done" : ""} aria-current={index === step ? "step" : undefined}><span>0{index + 1}</span>{label}</li>;
-        })}</ol>
-        {!batch && !result && <>
-        <fieldset disabled={busy}>
-          <div className="admission-section-head"><div><h2>Nhập danh sách trúng tuyển</h2><p>Sử dụng tệp Excel theo mẫu của hệ thống.</p></div><a href={import.meta.env.BASE_URL + "cau-truc-danh-sach-nhap-hoc.xlsx"} download><Download size={18} />Tải tệp mẫu (.xlsx)</a></div>
-          <div className="admission-upload-grid"><div>
-          <label htmlFor="admission-file">Tệp danh sách trúng tuyển</label>
-            <input
-              ref={fileInput}
-              id="admission-file"
-              hidden
-              type="file"
-              accept=".xlsx"
-              onChange={(e) => {
-                setFile(e.target.files?.[0]);
-                setBatch(undefined);
-                setResult(undefined);
-                setError("");
-                setFileError("");
-              }}
-            />
-          <div className="admission-file-row"><button type="button" className="btn" onClick={() => fileInput.current?.click()}>Chọn tệp Excel</button><span>{file?.name || "Chưa chọn tệp"}</span>{file && <button type="button" aria-label="Bỏ tệp đã chọn" onClick={() => { setFile(undefined); setFileError(""); if (fileInput.current) fileInput.current.value = ""; }}><X size={18} /></button>}</div>
-          <p className="admission-helper">Định dạng được hỗ trợ: .xlsx</p>
-          <div className={"admission-drop-zone " + (dragging ? "dragging" : "")} onDragOver={e => { e.preventDefault(); if (!busy) setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={e => { e.preventDefault(); setDragging(false); if (busy) return; const selected = e.dataTransfer.files[0]; if (selected && !selected.name.toLowerCase().endsWith(".xlsx")) { setFileError("Chỉ hỗ trợ tệp Excel .xlsx."); return; } if (selected) {setFile(selected); setFileError(""); setError("");} }}><FileSpreadsheet size={27} /><span>Có thể kéo thả tệp vào vùng này</span></div>
-          <p className="admission-inline-note"><Info size={17} />Bạn có thể kiểm tra và điều chỉnh trước khi xác nhận.</p>
-          </div><aside className="admission-schema"><h3>Nội dung tệp gồm 9 cột</h3><table><thead><tr><th>Nhóm thông tin</th><th>Trường dữ liệu</th></tr></thead><tbody><tr><td>Hồ sơ</td><td>Mã hồ sơ · Họ tên</td></tr><tr><td>Cá nhân</td><td>Ngày sinh · Giới tính · Email</td></tr><tr><td>Đào tạo</td><td>Điểm xét tuyển · Mã ngành<br />Mã khóa · Hệ đào tạo</td></tr></tbody></table><p className="admission-helper">Giữ nguyên tên cột trong tệp mẫu.</p></aside></div>
-          {fileError && <p className="field-error">{fileError}</p>}
-          <div className="admission-work-footer"><div><strong>Bước 1 / 3</strong><p>{file ? "Tệp đã sẵn sàng để kiểm tra" : "Chưa có dữ liệu để kiểm tra"}</p></div>
-          <button
-            className="btn primary"
-            disabled={!file || busy}
-            onClick={async () => {
-              if (
-                !file ||
-                !file.size ||
-                !file.name.toLowerCase().endsWith(".xlsx")
-              ) {
-                setFileError("Vui lòng chọn tệp Excel .xlsx có dữ liệu.");
-                return;
-              }
-              setBusy(true);
-              setResult(undefined);
-              setBatch(undefined);
-              setError("");
-              setFileError("");
-              try {
-                const form = new FormData();
-                form.append("file", file);
-                setBatch(
-                  await request<AdmissionPreviewResponse>(
-                    "admissionPreview",
-                    undefined,
-                    form,
+      <section className="admission-workspace" aria-busy={busy}>
+        <ol className="admission-steps">
+          {["Lập phương án", "Kiểm tra & phân lớp", "Xác nhận & kết quả"].map(
+            (s, i) => (
+              <li
+                key={s}
+                className={
+                  i ===
+                  (!plan
+                    ? 0
+                    : review || result || plan.state === "CONFIRMED"
+                      ? 2
+                      : 1)
+                    ? "active"
+                    : ""
+                }
+              >
+                <span>0{i + 1}</span>
+                {s}
+              </li>
+            ),
+          )}
+        </ol>
+        <fieldset disabled={busy} className="admission-plan-content">
+          <div className="admission-resume">
+            <label>
+              Mã phương án
+              <input
+                type="number"
+                min="1"
+                value={planId}
+                onChange={(e) => setPlanId(e.target.value)}
+              />
+            </label>
+            <button
+              className="btn"
+              disabled={!Number.isSafeInteger(+planId) || +planId < 1}
+              onClick={() =>
+                void run(async () =>
+                  update(
+                    await request<AdmissionPlan>("admissionPlanGet", +planId),
                   ),
-                );
-                accept(false);
-                filter("");
-                search("");
-              } catch (e) {
-                setFileError(message(e));
-              } finally {
-                setBusy(false);
+                )
               }
-            }}
-          >
-            {busy ? "Đang kiểm tra…" : "Kiểm tra & tiếp tục"}
-          </button>
-          </div>
-        </fieldset>
-        </>}
-      {batch && !result && !reviewing && (
-        <section className="card admissions-card">
-          <fieldset disabled={busy}>
-            <h2>2. Kiểm tra và điều chỉnh</h2>
-            <button type="button" className="btn" onClick={() => {setBatch(undefined); setError("");}}>Quay lại chọn tệp</button>
-            <p>
-              {batch.fileName} · {batch.totalRows} dòng · {batch.validRows} hồ
-              sơ hợp lệ · {batch.errors.length} lỗi
-            </p>
-            {batch.errors.map((e, i) => (
-              <p className="field-error" key={i}>
-                Dòng {e.rowNumber} · {e.applicationCode} · {e.field} ·{" "}
-                {e.reason}
-              </p>
-            ))}
-            {[...batch.capacityWarnings, ...batch.duplicateNameWarnings].map(
-              (w, i) => (
-                <p key={i}>{w}</p>
-              ),
+            >
+              <RefreshCw size={16} />
+              Tải phương án
+            </button>
+            {plan && (
+              <button
+                className="btn"
+                onClick={() => {
+                  setPlan(undefined);
+                  setResult(undefined);
+                  setReview(false);
+                  setFile(undefined);
+                  setNotifications(undefined);
+                }}
+              >
+                Lập phương án khác
+              </button>
             )}
-            <div className="academic-fields">
-              <label>
-                Lớp
-                <select
-                  value={classId}
-                  onChange={(e) => filter(e.target.value)}
+          </div>
+          {!plan ? (
+            <>
+              <h2>1. Thông tin đợt nhập học</h2>
+              <p className="admission-helper">
+                Nhập ID ngành và khóa theo danh mục quản lý đào tạo.
+              </p>
+              <div className="academic-fields">
+                <label>
+                  ID ngành
+                  <input
+                    type="number"
+                    min="1"
+                    value={majorId}
+                    onChange={(e) => setMajor(e.target.value)}
+                  />
+                </label>
+                <label>
+                  ID khóa
+                  <input
+                    type="number"
+                    min="1"
+                    value={cohortId}
+                    onChange={(e) => setCohort(e.target.value)}
+                  />
+                </label>
+                {(["minimum", "maximum", "reserve"] as const).map((key, i) => (
+                  <label key={key}>
+                    {["Sĩ số tối thiểu", "Sĩ số tối đa", "Suất dự bị"][i]}
+                    <input
+                      type="number"
+                      min={key === "reserve" ? 0 : 1}
+                      max={key === "reserve" ? 98 : 99}
+                      disabled={!capacity}
+                      value={capacity?.[key] ?? ""}
+                      onChange={(e) =>
+                        setCapacity((c) => c && { ...c, [key]: e.target.value })
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className="admission-method-heading">
+                <h3>Chọn cách lập phương án</h3>
+                <p className="admission-helper">
+                  Bạn đã có file Excel danh sách sinh viên chưa?
+                </p>
+              </div>
+              <div
+                className="admission-methods"
+                role="group"
+                aria-label="Cách lập phương án"
+              >
+                <button
+                  type="button"
+                  aria-pressed={entryMode === "file"}
+                  onClick={() => setEntryMode("file")}
                 >
-                  <option value="">Tất cả lớp</option>
-                  {batch.classes.map((c) => (
-                    <option key={c.classId} value={c.classId}>
-                      {c.className}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Tên hoặc mã hồ sơ
-                <input value={name} onChange={(e) => search(e.target.value)} />
-              </label>
-            </div>
-            {batch.classes
-              .filter((c) => !classId || String(c.classId) === classId)
-              .map((c) => (
-                <section key={c.classId}>
-                  <h3>{c.className}</h3>
-                  <p>
-                    Sĩ số dự kiến {c.projectedSize}/{c.maxCapacity} · Tối thiểu{" "}
-                    {c.minCapacity} · Điểm trung bình{" "}
-                    {c.projectedAverageEntranceScore}
+                  <FileSpreadsheet size={22} aria-hidden="true" />
+                  <span>
+                    <strong>Đã có danh sách Excel</strong>
+                    <small>Nhập hồ sơ sinh viên để đề xuất và phân lớp.</small>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={entryMode === "estimate"}
+                  onClick={() => setEntryMode("estimate")}
+                >
+                  <span className="admission-method-number" aria-hidden="true">
+                    123
+                  </span>
+                  <span>
+                    <strong>Chưa có danh sách — lập dự kiến</strong>
+                    <small>
+                      Chuẩn bị lớp theo số lượng, bổ sung Excel sau.
+                    </small>
+                  </span>
+                </button>
+              </div>
+              {entryMode === "file" && (
+                <section
+                  className="admission-entry-panel"
+                  aria-label="Nhập danh sách Excel"
+                >
+                  <div className="admission-section-head">
+                    <div>
+                      <h3>Danh sách trúng tuyển</h3>
+                      <p>Tải mẫu theo ngành và khóa trước khi nhập dữ liệu.</p>
+                    </div>
+                    <button
+                      className="btn"
+                      onClick={() =>
+                        void run(async () => {
+                          scope();
+                          const base =
+                            import.meta.env.VITE_API_BASE_URL?.trim().replace(
+                              /\/+$/,
+                              "",
+                            );
+                          if (base === undefined || !session)
+                            throw Error(
+                              "Chưa có cấu hình API hoặc phiên đăng nhập.",
+                            );
+                          const response = await fetch(
+                            `${base}/api/v1/student-admissions/template?majorId=${majorId}&cohortId=${cohortId}`,
+                            {
+                              headers: {
+                                Authorization: `Bearer ${session.accessToken}`,
+                              },
+                            },
+                          );
+                          if (!response.ok) {
+                            if (response.status === 401) clearSession();
+                            let detail = `Không tải được mẫu (HTTP ${response.status}).`;
+                            try {
+                              detail =
+                                (await response.json()).message || detail;
+                            } catch {}
+                            throw Error(detail);
+                          }
+                          const url = URL.createObjectURL(
+                            await response.blob(),
+                          );
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = "admission-template.xlsx";
+                          a.click();
+                          setTimeout(() => URL.revokeObjectURL(url), 1000);
+                        })
+                      }
+                    >
+                      <Download size={16} />
+                      Tải mẫu Excel
+                    </button>
+                  </div>
+                  <label className="admission-file-row">
+                    <FileSpreadsheet size={22} />
+                    <input
+                      type="file"
+                      accept=".xlsx"
+                      onChange={(e) => setFile(e.target.files?.[0])}
+                    />
+                  </label>
+                  <p className="admission-helper">
+                    Tệp .xlsx tối đa 10 MB. Giữ nguyên tên cột và mã ngành, mã
+                    khóa trong mẫu.
                   </p>
-                  <div className="table-scroll">
-                    <table className="management-table">
-                      <thead>
-                        <tr>
-                          {[
-                            "Dòng",
-                            "Mã hồ sơ",
-                            "Họ tên",
-                            "Email",
-                            "Điểm",
-                            "Lớp phân bổ",
-                          ].map((h) => (
-                            <th key={h}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {c.students
-                          .filter((s) =>
-                            (s.fullName + " " + s.applicationCode)
-                              .toLowerCase()
-                              .includes(name.toLowerCase().trim()),
-                          )
-                          .map((s) => (
-                            <tr key={s.applicationCode}>
-                              <td>{s.rowNumber}</td>
-                              <td>{s.applicationCode}</td>
-                              <td>{s.fullName}</td>
-                              <td>{s.email}</td>
-                              <td>{s.entranceScore}</td>
-                              <td>
-                                <select
-                                  aria-label={"Lớp của " + s.fullName}
-                                  value={s.assignedClassId}
-                                  onChange={async (e) => {
-                                    const targetClassId = Number(
-                                      e.target.value,
-                                    );
-                                    setBusy(true);
-                                    setError("");
-                                    try {
-                                      setBatch(
-                                        await request<AdmissionPreviewResponse>(
-                                          "admissionAdjustAssignment",
-                                          batch.batchId,
-                                          {
-                                            applicationCode: s.applicationCode,
-                                            targetClassId,
-                                          },
-                                        ),
-                                      );
-                                      accept(false);
-                                      notify("Đã cập nhật phân lớp.");
-                                    } catch (e) {
-                                      setError(message(e));
-                                    } finally {
-                                      setBusy(false);
-                                    }
-                                  }}
-                                >
-                                  {batch.classes.map((t) => (
-                                    <option key={t.classId} value={t.classId}>
-                                      {t.className}
-                                    </option>
-                                  ))}
-                                </select>
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
+                  <div className="admission-actions">
+                    <button
+                      className="btn primary"
+                      disabled={!file || !capacity}
+                      onClick={() =>
+                        void run(async () => {
+                          const values = scope();
+                          const form = upload();
+                          Object.entries(values).forEach(([k, v]) =>
+                            form.set(k, String(v)),
+                          );
+                          update(
+                            await request<AdmissionPlan>(
+                              "admissionPlanImport",
+                              undefined,
+                              form,
+                            ),
+                          );
+                        })
+                      }
+                    >
+                      Lập phương án từ danh sách
+                    </button>
                   </div>
                 </section>
+              )}
+              {entryMode === "estimate" && (
+                <section
+                  className="admission-entry-panel admission-estimate"
+                  aria-label="Lập phương án dự kiến"
+                >
+                  <h3>Lập phương án theo số lượng dự kiến</h3>
+                  <p className="admission-helper">
+                    Chỉ cần số sinh viên dự kiến để chuẩn bị lớp. Khi có danh
+                    sách chính thức, bạn nhập Excel vào phương án này để tiếp
+                    tục.
+                  </p>
+                  <label>
+                    Số sinh viên dự kiến
+                    <input
+                      type="number"
+                      min="1"
+                      value={total}
+                      onChange={(e) => setTotal(e.target.value)}
+                      placeholder="Nhập số sinh viên dự kiến"
+                    />
+                  </label>
+                  <button
+                    className="btn primary"
+                    disabled={
+                      !capacity ||
+                      !Number.isSafeInteger(Number(total)) ||
+                      Number(total) < 1
+                    }
+                    onClick={() =>
+                      void run(async () =>
+                        update(
+                          await request<AdmissionPlan>(
+                            "admissionPlanCreate",
+                            undefined,
+                            { ...scope(), totalStudents: Number(total) },
+                          ),
+                        ),
+                      )
+                    }
+                  >
+                    Lập phương án dự kiến
+                  </button>
+                </section>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="admission-section-head">
+                <div>
+                  <h2>Phương án #{plan.id}</h2>
+                  <p>
+                    Ngành #{plan.majorId} · Khóa #{plan.cohortId} ·{" "}
+                    {plan.totalStudents} sinh viên ·{" "}
+                    {states[plan.state] ?? plan.state}
+                  </p>
+                </div>
+                <span>Phiên bản {plan.revision}</span>
+              </div>
+              {plan.warnings.map((w, i) => (
+                <p className="admission-warning" key={i}>
+                  {w}
+                </p>
               ))}
-            <div className="admission-review-actions"><p>Kiểm tra phân lớp trước khi chuyển sang xác nhận. Chưa tạo hồ sơ sinh viên ở bước này.</p><button type="button" className="btn primary" disabled={busy || !batch.validRows} onClick={() => { setReviewing(true); accept(false); setError(""); }}>Tiếp tục đến xác nhận hồ sơ</button></div>
-          </fieldset>
-        </section>
-      )}
-      {batch && !result && reviewing && (
-        <section className="card admissions-card">
-          <fieldset disabled={busy}>
-            <h2>3. Xác nhận hồ sơ nhập học</h2>
-            <p>Tệp: {batch.fileName} · {batch.totalRows} dòng · {batch.validRows} hồ sơ hợp lệ · {batch.errors.length} lỗi.</p>
-            <p>Kiểm tra danh sách và lớp được phân bổ bên dưới. Chỉ khi nhấn “Xác nhận tạo hồ sơ và tài khoản”, hệ thống mới thực hiện nhập học.</p>
-            <div className="table-scroll"><table className="management-table"><thead><tr><th>Mã hồ sơ</th><th>Họ tên</th><th>Email</th><th>Lớp xác nhận</th></tr></thead><tbody>{batch.classes.flatMap(c => c.students.map(s => <tr key={s.applicationCode}><td>{s.applicationCode}</td><td>{s.fullName}</td><td>{s.email}</td><td>{c.className}</td></tr>))}</tbody></table></div>
-            {batch.errors.length > 0 && <p className="field-error">Các dòng không hợp lệ sẽ không được tạo hồ sơ. Quay lại bước 2 để xem chi tiết lỗi.</p>}
-            {[...batch.capacityWarnings, ...batch.duplicateNameWarnings].map((warning, index) => <p key={index}>{warning}</p>)}
-            {batch.capacityWarnings.length > 0 && (
-              <label>
-                <input
-                  type="checkbox"
-                  checked={accepted}
-                  onChange={(e) => accept(e.target.checked)}
-                />{" "}
-                Chấp nhận cảnh báo sĩ số tối thiểu
-              </label>
-            )}
-            <p>Chỉ {batch.validRows} hồ sơ hợp lệ sẽ được tạo tài khoản.</p>
-            <button type="button" className="btn" disabled={busy} onClick={() => { setReviewing(false); accept(false); setError(""); }}>Quay lại kiểm tra và phân lớp</button>
-            <button
-              type="button"
-              className="btn primary"
-              disabled={
-                busy || !batch.validRows ||
-                (batch.capacityWarnings.length > 0 && !accepted)
-              }
-              onClick={async () => {
-                setBusy(true);
-                setError("");
-                try {
-                  setResult(
-                    await request<AdmissionConfirmResponse>(
-                      "admissionConfirm",
-                      batch.batchId,
-                      {
-                        actor: session?.user.username,
-                        acceptMinimumCapacityWarning: accepted,
-                      },
-                    ),
-                  );
-                  notify("Đã xác nhận nhập học.");
-                } catch (e) {
-                  setError(message(e));
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              {busy ? "Đang tạo hồ sơ…" : "Xác nhận tạo hồ sơ và tài khoản"}
-            </button>
-          </fieldset>
-        </section>
-      )}
-      {result && (
-        <section className="card admissions-card">
-          <h2>3. Kết quả nhập học</h2>
-          <p>
-            Đã tạo {result.createdStudents} hồ sơ và {result.createdUsers} tài
-            khoản.
-          </p>
-          {result.emailFailures.length > 0 && (
-            <p className="field-error">
-              Hồ sơ gửi email thất bại · {result.emailFailures.join(", ")}
+              {editable && !hasEnrolled && !review && (
+                <>
+                  <h3>2. Chọn phương án lớp</h3>
+                  <div
+                    className="admission-scenarios"
+                    role="group"
+                    aria-label="Phương án lớp"
+                  >
+                    {plan.scenarios.map((s) => (
+                      <label
+                        key={s.classCount}
+                        className={s.classCount === count ? "selected" : ""}
+                      >
+                        <input
+                          type="radio"
+                          name="scenario"
+                          checked={count === s.classCount}
+                          onChange={() => {
+                            setCount(s.classCount);
+                            setReserve(false);
+                            setBelow(false);
+                          }}
+                        />
+                        <strong>
+                          {s.classCount} lớp {s.recommended ? "· Đề xuất" : ""}
+                        </strong>
+                        <span>Sĩ số: {s.targetSizes.join(" / ")}</span>
+                        <span>
+                          Dự bị: {s.reserveUsed} · Phòng phù hợp:{" "}
+                          {s.suitableRooms}
+                        </span>
+                        {s.warnings.map((w, i) => (
+                          <small key={i}>{w}</small>
+                        ))}
+                      </label>
+                    ))}
+                  </div>
+                  {acceptance}
+                  <button
+                    className="btn"
+                    disabled={
+                      !scenario ||
+                      (scenario.reserveUsed > 0 && !reserve) ||
+                      (scenario.belowMinimum && !below) ||
+                      ((reserve || below) && !reason.trim())
+                    }
+                    onClick={() =>
+                      void run(async () =>
+                        update(
+                          await request<AdmissionPlan>(
+                            "admissionPrepareClasses",
+                            undefined,
+                            {
+                              planId: plan.id,
+                              expectedRevision: plan.revision,
+                              classCount: count,
+                              acceptReserve: reserve,
+                              acceptBelowMinimum: below,
+                              reason: reason.trim() || null,
+                            },
+                          ),
+                        ),
+                      )
+                    }
+                  >
+                    Chuẩn bị {count || ""} lớp theo phương án
+                  </button>
+                </>
+              )}
+              {!!plan.classes.length && (
+                <div className="admission-stats">
+                  {plan.classes.map((c) => (
+                    <div key={c.id}>
+                      <b>{c.className}</b>
+                      <span>
+                        Phân bổ {c.assignedSize} / {c.maximum} · Dự bị{" "}
+                        {c.reserveUsed}/{c.reserve}
+                      </span>
+                      <small>
+                        Hiện có {c.currentSize} · Điểm TB{" "}
+                        {c.averageScore ?? "—"}
+                      </small>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {editable &&
+                !review &&
+                (showUpload || !plan.applicants.length) && (
+                  <div className="admission-estimate">
+                    <h3>
+                      {plan.applicants.length
+                        ? "Cập nhật danh sách Excel"
+                        : "Nhập danh sách sinh viên"}
+                    </h3>
+                    <p className="admission-helper">
+                      Hồ sơ đã nhập học được giữ nguyên khi nhập lại.
+                    </p>
+                    <input
+                      id="admission-plan-upload"
+                      aria-label="Danh sách nhập lại"
+                      type="file"
+                      accept=".xlsx"
+                      onChange={(e) => setFile(e.target.files?.[0])}
+                    />
+                    <div className="admission-actions">
+                      <button
+                        className="btn"
+                        disabled={!file}
+                        onClick={() =>
+                          void run(async () => {
+                            const form = upload();
+                            form.set("expectedRevision", String(plan.revision));
+                            update(
+                              await request<AdmissionPlan>(
+                                "admissionApplicants",
+                                plan.id,
+                                form,
+                              ),
+                            );
+                          })
+                        }
+                      >
+                        Nhập danh sách vào phương án
+                      </button>
+                      {!!plan.applicants.length && (
+                        <button
+                          className="btn"
+                          onClick={() => {
+                            setShowUpload(false);
+                            setFile(undefined);
+                          }}
+                        >
+                          Hủy cập nhật
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              <div className="admission-section-head">
+                <div>
+                  <h3>
+                    {review
+                      ? "3. Kiểm tra trước khi xác nhận"
+                      : "Danh sách hồ sơ"}
+                  </h3>
+                  <p>
+                    {plan.applicants.length} hồ sơ · {eligible.length} hồ sơ chờ
+                    xử lý
+                  </p>
+                </div>
+                {editable && !review && !!plan.applicants.length && (
+                  <div className="admission-roster-actions">
+                    <button
+                      className="btn"
+                      aria-expanded={showUpload}
+                      aria-controls="admission-plan-upload"
+                      onClick={() => {
+                        setShowUpload(!showUpload);
+                        setFile(undefined);
+                      }}
+                    >
+                      {" "}
+                      {showUpload
+                        ? "Đóng cập nhật Excel"
+                        : "Cập nhật danh sách Excel"}
+                    </button>
+                    <button
+                      className="btn primary"
+                      disabled={!plan.classes.length || !eligible.length}
+                      onClick={() =>
+                        void run(async () =>
+                          update(
+                            await request<AdmissionPlan>(
+                              "admissionAllocation",
+                              plan.id,
+                              { expectedRevision: plan.revision },
+                            ),
+                          ),
+                        )
+                      }
+                    >
+                      {plan.state === "PREVIEWED"
+                        ? "Chạy lại phân bổ"
+                        : "Chạy phân bổ / xem trước"}
+                    </button>
+                  </div>
+                )}
+              </div>
+              {editable &&
+                !review &&
+                !!plan.applicants.length &&
+                !plan.classes.length && (
+                  <p className="admission-helper">
+                    Chuẩn bị lớp theo phương án ở trên để tiếp tục phân bổ sinh
+                    viên.
+                  </p>
+                )}
+              <div className="academic-fields">
+                <label>
+                  Tìm tên, mã hồ sơ, email
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Lọc lớp
+                  <select
+                    value={classFilter}
+                    onChange={(e) => setClassFilter(e.target.value)}
+                  >
+                    <option value="">Tất cả</option>
+                    {plan.classes.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.className}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="table-scroll admission-table-wrap">
+                <table className="management-table">
+                  <thead>
+                    <tr>
+                      {[
+                        "Dòng / mã hồ sơ",
+                        "Họ tên / email",
+                        "Điểm",
+                        "Trạng thái",
+                        "Lớp",
+                        "Kết quả / lưu ý",
+                      ].map((h) => (
+                        <th key={h}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((a) => (
+                      <tr key={a.id}>
+                        <td>
+                          {a.rowNumber} · {a.applicationCode}
+                        </td>
+                        <td>
+                          {a.fullName}
+                          <small>{a.email}</small>
+                        </td>
+                        <td>{a.entranceScore ?? "—"}</td>
+                        <td>
+                          <span
+                            className={`admission-status admission-status-${a.state.toLowerCase()}`}
+                          >
+                            {states[a.state] ?? a.state}
+                          </span>
+                        </td>
+                        <td>
+                          {!review &&
+                          plan.state === "PREVIEWED" &&
+                          a.state === "VALID" ? (
+                            <select
+                              aria-label={`Lớp của ${a.fullName}`}
+                              value={a.assignedClassId ?? ""}
+                              onChange={(e) => {
+                                const classId = +e.target.value;
+                                void run(async () =>
+                                  update(
+                                    await request<AdmissionPlan>(
+                                      "admissionAllocationAdjust",
+                                      plan.id,
+                                      {
+                                        expectedRevision: plan.revision,
+                                        assignments: [
+                                          { applicantId: a.id, classId },
+                                        ],
+                                      },
+                                    ),
+                                  ),
+                                );
+                              }}
+                            >
+                              <option disabled value="">
+                                Chưa phân lớp
+                              </option>
+                              {plan.classes.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.className}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            (plan.classes.find(
+                              (c) => c.id === a.assignedClassId,
+                            )?.className ?? "Chưa phân lớp")
+                          )}
+                        </td>
+                        <td>
+                          <span className="field-error">{a.error}</span>
+                          {a.studentCode && <span>MSSV: {a.studentCode}</span>}
+                          {a.reusingAccount && (
+                            <small>Dùng lại tài khoản</small>
+                          )}
+                          {a.warnings.map((w, i) => (
+                            <small key={i}>{w}</small>
+                          ))}
+                        </td>
+                      </tr>
+                    ))}
+                    {!rows.length && (
+                      <tr>
+                        <td colSpan={6}>Chưa có hồ sơ phù hợp.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {plan.averageScoreDifference != null && (
+                <p className="admission-helper">
+                  Chênh lệch điểm trung bình giữa các lớp:{" "}
+                  {plan.averageScoreDifference}
+                </p>
+              )}
+              {editable &&
+                ["PREVIEWED", "PARTIALLY_CONFIRMED"].includes(plan.state) &&
+                !review && (
+                  <div className="admission-actions">
+                    <button
+                      className="btn primary"
+                      disabled={!eligible.some((a) => a.assignedClassId)}
+                      onClick={() => {
+                        setReview(true);
+                        // Retain only acceptances that still apply to the final allocation.
+                        setReserve(
+                          reserve &&
+                            projectedSizes.some(
+                              (size) => size > plan.capacity.maximum,
+                            ),
+                        );
+                        setBelow(
+                          below &&
+                            projectedSizes.some(
+                              (size) => size < plan.capacity.minimum,
+                            ),
+                        );
+                      }}
+                    >
+                      Tiếp tục xác nhận nhập học
+                    </button>
+                  </div>
+                )}
+              {review && (
+                <div className="admission-estimate">
+                  <h3>Xác nhận tạo hồ sơ và tài khoản</h3>
+                  <p>
+                    Hệ thống xử lý các hồ sơ hợp lệ đã phân lớp.
+                    {needsException
+                      ? " Kiểm tra ngoại lệ sĩ số trước khi xác nhận."
+                      : " Sĩ số các lớp nằm trong giới hạn cho phép."}
+                  </p>
+                  {acceptance}
+                  <div className="admission-actions">
+                    <button className="btn" onClick={() => setReview(false)}>
+                      Quay lại kiểm tra
+                    </button>
+                    <button
+                      className="btn primary"
+                      disabled={
+                        (needsReserve && !reserve) ||
+                        (needsBelowMinimum && !below) ||
+                        (needsException && !reason.trim())
+                      }
+                      onClick={() =>
+                        void run(async () => {
+                          const r = await request<AdmissionConfirmation>(
+                            "admissionPlanConfirm",
+                            plan.id,
+                            {
+                              expectedRevision: plan.revision,
+                              acceptReserve: needsReserve && reserve,
+                              acceptBelowMinimum: needsBelowMinimum && below,
+                              reason: needsException
+                                ? reason.trim() || null
+                                : null,
+                            },
+                          );
+                          setResult(r);
+                          setPlan({
+                            ...plan,
+                            revision: r.revision,
+                            state: r.state,
+                            applicants: r.applicants,
+                          });
+                          setReview(false);
+                        })
+                      }
+                    >
+                      Xác nhận nhập học
+                    </button>
+                  </div>
+                </div>
+              )}
+              {result && (
+                <div className="admission-guide" role="status">
+                  Kết quả: {result.enrolled} nhập học · {result.failed} thất bại
+                  · {result.skipped} bỏ qua.{" "}
+                  {result.failed > 0 &&
+                    "Kiểm tra lỗi, tải lại phương án và xử lý hồ sơ còn lại."}
+                </div>
+              )}
+              {(hasEnrolled || result || plan.state === "CONFIRMED") && (
+                <div className="admission-estimate">
+                  <div className="admission-section-head admission-notification-heading">
+                    <div>
+                      <h3>Email thông báo nhập học</h3>
+                      <p className="admission-helper">
+                        Theo dõi kết quả gửi email cho sinh viên đã nhập học.
+                      </p>
+                    </div>
+                    <button
+                      className="btn"
+                      onClick={() =>
+                        void run(async () =>
+                          setNotifications(
+                            await request<AdmissionNotification[]>(
+                              "admissionNotifications",
+                              plan.id,
+                            ),
+                          ),
+                        )
+                      }
+                    >
+                      <RefreshCw size={15} aria-hidden="true" /> Làm mới
+                    </button>
+                  </div>
+                  {loadingNotifications && (
+                    <p role="status" className="admission-helper">
+                      Đang tải trạng thái email…
+                    </p>
+                  )}
+                  {notificationError && (
+                    <p role="alert" className="field-error">
+                      {notificationError}
+                    </p>
+                  )}
+                  {notifications && (
+                    <>
+                      {!!notifications.length && (
+                        <div
+                          className={`admission-mail-result ${allEmailsSent ? "success" : emailFailed ? "warning" : "pending"}`}
+                          role="status"
+                          aria-live="polite"
+                        >
+                          <span className="admission-mail-result-icon">
+                            {allEmailsSent ? (
+                              <CheckCircle2 size={25} aria-hidden="true" />
+                            ) : emailFailed ? (
+                              <AlertCircle size={25} aria-hidden="true" />
+                            ) : (
+                              <Mail size={25} aria-hidden="true" />
+                            )}
+                          </span>
+                          <div>
+                            <strong>
+                              {allEmailsSent
+                                ? "Đã gửi email thông báo thành công"
+                                : emailFailed
+                                  ? "Một số email chưa gửi thành công"
+                                  : "Đang xử lý email thông báo"}
+                            </strong>
+                            <p>
+                              {allEmailsSent
+                                ? `Đã gửi ${emailSent}/${notifications.length} email thông báo nhập học đến địa chỉ email của sinh viên.`
+                                : `${emailSent}/${notifications.length} email đã gửi. ${emailWaiting > 0 ? `${emailWaiting} email đang chờ xử lý. ` : ""}${emailFailed > 0 ? `${emailFailed} email gửi thất bại, xem chi tiết bên dưới. ` : ""}${emailSkipped > 0 ? `${emailSkipped} email được bỏ qua.` : ""}`}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      {!!notifications.length && (
+                        <div className="admission-mail-counts">
+                          <span>
+                            <CheckCircle2 size={15} aria-hidden="true" />
+                            Đã gửi <b>{emailSent}</b>
+                          </span>
+                          <span>
+                            <Clock3 size={15} aria-hidden="true" />
+                            Chờ xử lý <b>{emailWaiting}</b>
+                          </span>
+                          <span>
+                            <AlertCircle size={15} aria-hidden="true" />
+                            Thất bại <b>{emailFailed}</b>
+                          </span>
+                        </div>
+                      )}
+                      <details className="admission-mail-details">
+                        <summary>
+                          Xem chi tiết gửi email ({notifications.length})
+                        </summary>
+                        <div className="table-scroll admission-table-wrap">
+                          <table className="management-table">
+                            <thead>
+                              <tr>
+                                <th>Mã nhập học</th>
+                                <th>Trạng thái</th>
+                                <th>Số lần thất bại</th>
+                                <th>Chi tiết</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {notifications.map((n) => (
+                                <tr key={n.id}>
+                                  <td>{n.admissionId}</td>
+                                  <td>
+                                    <span
+                                      className={`admission-status admission-status-${n.state === "SENT" ? "enrolled" : n.state === "FAILED" ? "failed" : "pending"}`}
+                                    >
+                                      {states[n.state] ?? n.state}
+                                    </span>
+                                  </td>
+                                  <td>{n.failureCount}</td>
+                                  <td>{n.error || "—"}</td>
+                                </tr>
+                              ))}
+                              {!notifications.length && (
+                                <tr>
+                                  <td colSpan={4}>
+                                    Chưa có email được ghi nhận cho đợt nhập học
+                                    này.
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </details>
+                    </>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+          {busy && <p role="status">Đang xử lý…</p>}
+          {error && (
+            <p role="alert" className="field-error admission-error">
+              {error}
             </p>
           )}
-        </section>
-      )}
+        </fieldset>
       </section>
-      <div className="admission-workflow-caption"><strong>Quy trình xử lý</strong><span>Kiểm tra dữ liệu</span><span>Xem trước kết quả phân lớp</span><span>Xác nhận tạo hồ sơ & tài khoản</span></div>
-      {error && (
-        <p role="alert" className="field-error">
-          {error}
-        </p>
-      )}
     </>
   );
 }
