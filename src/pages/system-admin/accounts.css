@@ -1,0 +1,69 @@
+.account-role-switch {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 24px 26px 0;
+}
+.account-role-switch button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+  padding: 16px;
+  border: 1px solid #dfe3e9;
+  border-radius: 7px;
+  background: #fff;
+  color: #586476;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.account-role-switch button:hover {
+  border-color: #b4717e;
+}
+.account-role-switch button[aria-pressed="true"] {
+  background: #fcf4f6;
+  border-color: #941b2e;
+  color: #941b2e;
+}
+.account-role-switch button:focus-visible {
+  outline: 3px solid #941b2e35;
+  outline-offset: 3px;
+}
+.account-role-switch svg {
+  flex-shrink: 0;
+}
+.account-role-switch b {
+  margin-left: auto;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #f0f2f5;
+  color: #465164;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.account-role-switch button[aria-pressed="true"] b {
+  background: #f2dfe4;
+  color: #941b2e;
+}
+@media (max-width: 900px) {
+  .account-role-switch {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  .account-role-switch {
+    padding: 18px 16px 0;
+    gap: 8px;
+  }
+  .account-role-switch button {
+    padding: 12px 10px;
+    gap: 7px;
+    font-size: 12px;
+  }
+}

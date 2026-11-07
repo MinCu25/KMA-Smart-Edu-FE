@@ -1,5 +1,6 @@
-import { useLiveRequest } from "../live/client";
-import type { PageResponse } from "../../services/api/backendContract";
+import { readAllPages, useLiveRequest } from "../live/client";
+import { Users, GraduationCap, BookOpen, UserCog } from "lucide-react";
+import "./accounts.css";
 import { useAcademic } from "../../context/AcademicContext";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
@@ -76,7 +77,7 @@ function AccountScreen({
         }
       : {},
   );
-  const [remote, setRemote] = useState<PageResponse<UserInfoResponse>>(),
+  const [remote, setRemote] = useState<UserInfoResponse[]>(),
     [error, setError] = useState(""),
     [revision, refresh] = useState(0);
   useEffect(() => {
@@ -85,21 +86,17 @@ function AccountScreen({
     setRemote(undefined);
     setError("");
     const timer = setTimeout(() => {
-      request<PageResponse<UserInfoResponse>>(
+      readAllPages<UserInfoResponse>(
+        request,
         "adminUsersSearch",
-        undefined,
-        undefined,
         new URLSearchParams({
           keyword: query.trim(),
-          page: String(page - 1),
-          size: String(size),
         }),
+        () => active,
       )
         .then((r) => {
           if (active) {
-            if (page > Math.max(1, r.totalPages))
-              setPage(Math.max(1, r.totalPages));
-            else setRemote(r);
+            setRemote(r);
           }
         })
         .catch((e) => {
@@ -110,20 +107,19 @@ function AccountScreen({
       active = false;
       clearTimeout(timer);
     };
-  }, [live, request, page, size, query, revision]);
-  const filtered = users.filter(
+  }, [live, request, query, revision]);
+  const source = live ? (remote ?? []) : users;
+  const filtered = source.filter(
     (u) =>
       normalize(u.username + " " + u.fullName).includes(normalize(query)) &&
       (!role || u.role === role) &&
       (!status || u.status === status),
   );
-  const count = live ? (remote?.totalElements ?? 0) : filtered.length;
+  const count = filtered.length;
   const pages = Math.max(1, Math.ceil(count / size)),
-    current = live ? page : Math.min(page, pages),
+    current = Math.min(page, pages),
     start = (current - 1) * size;
-  const visible = live
-    ? (remote?.content ?? [])
-    : filtered.slice(start, start + size);
+  const visible = filtered.slice(start, start + size);
   function clear() {
     setQuery("");
     setRole("");
@@ -166,6 +162,36 @@ function AccountScreen({
         </div>
       </div>
       <section className="card system-accounts">
+        <div
+          className="account-role-switch"
+          role="group"
+          aria-label="Lọc tài khoản theo vai trò"
+        >
+          {[
+            { value: "", label: "Tất cả", Icon: Users },
+            { value: "STUDENT", label: "Sinh viên", Icon: GraduationCap },
+            { value: "ACADEMIC_ADMIN", label: "Admin học vụ", Icon: UserCog },
+            { value: "LECTURER", label: "Giảng viên", Icon: BookOpen },
+          ].map(({ value, label, Icon }) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={role === value}
+              onClick={() => {
+                setRole(value);
+                setPage(1);
+              }}
+            >
+              <Icon size={19} aria-hidden="true" />
+              <span>{label}</span>
+              <b>
+                {live && !remote
+                  ? "…"
+                  : source.filter((u) => !value || u.role === value).length}
+              </b>
+            </button>
+          ))}
+        </div>
         <div className="management-toolbar account-filters">
           <label>
             Tìm kiếm
@@ -182,23 +208,6 @@ function AccountScreen({
           </label>
           {!live && (
             <>
-              <label>
-                Vai trò
-                <select
-                  value={role}
-                  onChange={(e) => {
-                    setRole(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">Tất cả vai trò</option>
-                  {Object.entries(roles).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <label>
                 Trạng thái
                 <select
