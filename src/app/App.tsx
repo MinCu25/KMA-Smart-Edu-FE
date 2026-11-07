@@ -26,6 +26,7 @@ export default function App() {
     return Object.hasOwn(pageRoles, value) ? (value as Page) : "register";
   };
   const [page, setPage] = useState<Page>(readPage);
+  const [showHome, setShowHome] = useState(true);
   useEffect(() => {
     const change = () => setPage(readPage());
     window.addEventListener("hashchange", change);
@@ -34,6 +35,7 @@ export default function App() {
   const { logged, logout, role, session } = useAuth();
   const { setDialog, notify, notifyError, dismissToast } = useUI();
   function navigate(next: Page) {
+    setShowHome(false);
     if (next === "academic-dashboard") next = "admin";
     if (["system-dashboard", "permissions", "audit", "settings"].includes(next))
       next = "accounts";
@@ -64,12 +66,16 @@ export default function App() {
       : logged && pageRoles[page] !== role
         ? roleHome[role]
         : page;
+  const atHome = !logged || (showHome && !session?.requirePasswordChange);
   useEffect(() => {
-    if (logged && page !== activePage) {
+    if (!logged) setShowHome(true);
+  }, [logged]);
+  useEffect(() => {
+    if (logged && !atHome && page !== activePage) {
       window.history.replaceState(null, "", "#" + activePage);
       setPage(activePage);
     }
-  }, [logged, activePage, page]);
+  }, [logged, activePage, page, atHome]);
   const content =
     backendEnabled && activePage !== passwordPage[role] ? (
       <LiveAccountPage
@@ -82,7 +88,7 @@ export default function App() {
     );
   return (
     <div onSubmitCapture={dismissToast}>
-      {!logged ? (
+      {atHome ? (
         <HomePage onNavigate={navigate} />
       ) : pageRoles[activePage] !== "student" ? (
         <AdminLayout

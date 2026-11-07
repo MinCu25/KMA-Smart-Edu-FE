@@ -69,3 +69,182 @@
     font-size: 20px;
   }
 }
+.kma-home #portal-account-root:empty {
+  display: none;
+}
+.kma-home .home-account-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  width: 100%;
+  border-radius: 6px;
+  padding: 5px;
+}
+.kma-home .home-account-identity:hover {
+  background: #faf0f2;
+}
+.kma-home .home-account-avatar {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border: 1px solid #e8c9d0;
+  border-radius: 50%;
+  background: #f8e9ed;
+  color: #941b2e;
+  font-size: 15px;
+  font-weight: 700;
+}
+.kma-home .home-account-identity strong {
+  display: block;
+  font-size: 14px;
+  color: #482632;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.kma-home .home-account-identity small {
+  display: block;
+  font-size: 12px;
+  color: #737782;
+  line-height: 1.5;
+}
+.kma-home .home-session-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2f754d;
+  margin: 10px 0 18px;
+}
+.kma-home .home-account-description {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #667080;
+  margin: 16px 0 22px;
+}
+.kma-home .home-account-logout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 12px;
+  color: #687080;
+  width: 100%;
+  margin-top: 18px;
+  padding: 8px;
+}
+.kma-home .home-account-compact {
+  max-width: 260px;
+}
+.kma-home .home-account-compact .home-account-avatar {
+  width: 38px;
+  height: 38px;
+  flex-basis: 38px;
+  font-size: 12px;
+}
+.kma-home .home-account-compact .home-account-identity strong {
+  font-size: 12px;
+}
+.kma-home .home-account-compact .home-account-identity small {
+  font-size: 11px;
+}
+.kma-home .home-account-compact .home-account-identity > svg {
+  flex-shrink: 0;
+  color: #941b2e;
+}
+.kma-home .masthead-inner:has(.home-account-compact) .head-search {
+  display: none;
+}
+@media (max-width: 760px) {
+  .kma-home .masthead-inner:has(.home-account-compact) {
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .kma-home .home-account-compact {
+    max-width: 100%;
+  }
+}
+.kma-home .access-panel.is-authenticated {
+  background: #fff;
+  border-top: 3px solid #941b2e;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+.kma-home .access-panel.is-authenticated > h2 {
+  font-family: var(--sans);
+  font-size: 14px;
+  color: #536071;
+  font-weight: 600;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #eceef1;
+}
+.kma-home .access-panel.is-authenticated #portal-login-root {
+  display: flex;
+  flex: 1;
+}
+.kma-home .home-account-panel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding-top: 20px;
+}
+.kma-home .home-account-panel .home-session-status {
+  order: 1;
+  justify-content: center;
+  margin: 14px 0 0;
+  font-size: 11px;
+}
+.kma-home .home-account-panel .home-account-identity {
+  flex-direction: column;
+  text-align: center;
+  padding: 0;
+  gap: 14px;
+}
+.kma-home .home-account-panel .home-account-identity:hover {
+  background: transparent;
+}
+.kma-home .home-account-panel .home-account-avatar {
+  width: 66px;
+  height: 66px;
+  flex-basis: 66px;
+  border-radius: 18px;
+  background: #f9edf0;
+  border-color: #efd7dd;
+  font-size: 22px;
+}
+.kma-home .home-account-panel .home-account-identity strong {
+  font-size: 15px;
+  line-height: 1.6;
+}
+.kma-home .home-account-panel .home-account-identity small {
+  display: inline-block;
+  background: #f5f6f8;
+  border-radius: 4px;
+  padding: 4px 10px;
+  margin-top: 7px;
+  color: #677181;
+  font-size: 11px;
+}
+.kma-home .home-account-panel .home-account-description {
+  order: 2;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.85;
+  margin: 18px 0 22px;
+}
+.kma-home .home-account-panel .login-submit {
+  order: 3;
+  margin-top: auto;
+  min-height: 44px;
+  border-radius: 5px;
+  font-size: 13px;
+}
+.kma-home .home-account-panel .home-account-logout {
+  order: 4;
+  margin-top: 12px;
+  padding: 9px;
+}

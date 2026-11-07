@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRight, Eye, EyeOff } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, CheckCircle2, LogOut } from "lucide-react";
+import { roleHome, roleNames } from "../../config/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { useUI } from "../../context/UIContext";
 import type { PageProps } from "../../types/navigation";
@@ -69,7 +70,7 @@ function HomeLogin({ onNavigate }: PageProps) {
           const result = await login(username.trim(), password);
           if (result.ok) {
             setPassword("");
-            onNavigate(result.page);
+            if (result.page.endsWith("-password")) onNavigate(result.page);
             notify("Đăng nhập thành công.");
           } else setError(result.message);
         } catch (cause) {
@@ -174,15 +175,119 @@ function HomeLogin({ onNavigate }: PageProps) {
   );
 }
 
+function HomeAccount({
+  onNavigate,
+  compact = false,
+}: PageProps & { compact?: boolean }) {
+  const { session, role, logout } = useAuth();
+  const { notifyError, setDialog } = useUI();
+  if (!session) return null;
+  const name = session.user.fullName || session.user.username;
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .slice(-2)
+    .map((s) => s[0])
+    .join("")
+    .toUpperCase();
+  const enterLabel =
+    role === "student"
+      ? "Vào trang sinh viên"
+      : role === "lecturer"
+        ? "Vào trang giảng viên"
+        : "Vào trang quản lý";
+  const enter = () => onNavigate(roleHome[role]);
+  return (
+    <div className={compact ? "home-account-compact" : "home-account-panel"}>
+      {!compact && (
+        <p className="home-session-status">
+          <CheckCircle2 size={16} aria-hidden="true" />
+          Đăng nhập thành công
+        </p>
+      )}
+      <button
+        type="button"
+        className="home-account-identity"
+        onClick={enter}
+        aria-label={`${enterLabel} của ${name}`}
+      >
+        <span className="home-account-avatar">{initials}</span>
+        <span>
+          <strong>{name}</strong>
+          <small>{roleNames[role]}</small>
+        </span>
+        {compact && <ArrowRight size={17} aria-hidden="true" />}
+      </button>
+      {!compact && (
+        <>
+          <p className="home-account-description">
+            {role === "system-admin"
+              ? "Quản lý tài khoản, phân nhóm người dùng và bảo vệ truy cập hệ thống."
+              : role === "academic-admin"
+                ? "Tiếp nhận nhập học, quản lý sinh viên và tổ chức đào tạo."
+                : role === "lecturer"
+                  ? "Theo dõi lớp học phần, lịch giảng dạy và quản lý điểm."
+                  : "Tra cứu học vụ, đăng ký học phần và theo dõi thời khóa biểu."}
+          </p>
+          <button
+            type="button"
+            className="primary login-submit"
+            onClick={enter}
+          >
+            {enterLabel}
+            <ArrowRight size={18} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="home-account-logout"
+            onClick={() =>
+              setDialog({
+                title: "Đăng xuất",
+                body: "Bạn muốn đăng xuất khỏi tài khoản hiện tại?",
+                confirm: "Đăng xuất",
+                action: async () => {
+                  try {
+                    await logout();
+                  } catch (e) {
+                    notifyError(
+                      e instanceof Error ? e.message : "Đăng xuất thất bại.",
+                    );
+                  }
+                },
+              })
+            }
+          >
+            <LogOut size={15} aria-hidden="true" />
+            Đăng xuất
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function HomePage({ onNavigate }: PageProps) {
+  const { logged } = useAuth();
   const shell = useRef<HTMLDivElement>(null);
   const [loginRoot, setLoginRoot] = useState<HTMLElement | null>(null);
+  const [accountRoot, setAccountRoot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    const heading = shell.current?.querySelector("#access-heading");
+    if (heading)
+      heading.textContent = logged
+        ? "Tài khoản đã đăng nhập"
+        : "Đăng nhập hệ thống";
+    shell.current
+      ?.querySelector(".access-panel")
+      ?.classList.toggle("is-authenticated", logged);
+  }, [logged, loginRoot]);
   useEffect(() => {
     const root = shell.current;
     if (!root) return;
     const previousTitle = document.title;
     document.title = "Cổng thông tin đào tạo | Học viện Kỹ thuật Mật mã";
     setLoginRoot(root.querySelector<HTMLElement>("#portal-login-root"));
+    setAccountRoot(root.querySelector<HTMLElement>("#portal-account-root"));
     const cleanup = initializeHome(root, assetBase);
     return () => {
       cleanup();
@@ -193,7 +298,20 @@ export default function HomePage({ onNavigate }: PageProps) {
     <>
       <PortalShell shellRef={shell} />
       {loginRoot &&
-        createPortal(<HomeLogin onNavigate={onNavigate} />, loginRoot)}
+        createPortal(
+          logged ? (
+            <HomeAccount onNavigate={onNavigate} />
+          ) : (
+            <HomeLogin onNavigate={onNavigate} />
+          ),
+          loginRoot,
+        )}
+      {logged &&
+        accountRoot &&
+        createPortal(
+          <HomeAccount compact onNavigate={onNavigate} />,
+          accountRoot,
+        )}
     </>
   );
 }
