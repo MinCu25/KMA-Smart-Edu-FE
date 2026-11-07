@@ -7,6 +7,7 @@ import { ActionForm, fieldType, show, message } from "./ActionForm";
 import { Detail, Pager } from "../../components/academic-admin/AcademicUI";
 import type { PageResponse } from "../../services/api/backendContract";
 import { Opening } from "./Opening";
+import "./directory-filters.css";
 
 const headings: Record<string, [string, string]> = {
   admin: ["Quản lý sinh viên", ""],
@@ -224,9 +225,17 @@ export function ListPage({ page }: { page: string }) {
           </p>
         </section>
       ) : (
-        <section className={page === "admin" ? "card admin-card student-workspace" : ["teachers", "subjects"].includes(page) ? "card student-workspace" : "card"}>
+        <section
+          className={
+            page === "admin"
+              ? "card admin-card student-workspace"
+              : ["teachers", "subjects"].includes(page)
+                ? "card student-workspace"
+                : "card"
+          }
+        >
           <form
-            className="admin-filter"
+            className={`admin-filter ${["admin", "teachers", "subjects"].includes(page) ? "directory-filters" : ""}`}
             key={query}
             onSubmit={(e) => {
               e.preventDefault();
@@ -249,7 +258,10 @@ export function ListPage({ page }: { page: string }) {
                         ? "1 2 3 4 5"
                         : "";
               return (
-                <label key={k}>
+                <label
+                  key={k}
+                  className={k === "keyword" ? "directory-keyword" : undefined}
+                >
                   {k === "keyword" && page === "admin"
                     ? "Từ khóa (MSSV hoặc họ tên)"
                     : names[k]}
@@ -281,22 +293,33 @@ export function ListPage({ page }: { page: string }) {
                       defaultValue={applied.get(k) ?? ""}
                       type={fieldType(k)}
                       min="1"
+                      placeholder={
+                        k === "keyword"
+                          ? page === "admin"
+                            ? "Nhập MSSV hoặc họ tên…"
+                            : page === "teachers"
+                              ? "Nhập mã hoặc tên giảng viên…"
+                              : "Nhập mã hoặc tên học phần…"
+                          : undefined
+                      }
                     />
                   )}
                 </label>
               );
             })}
-            <button className="btn primary">Tìm kiếm</button>
-            <button
-              className="btn"
-              type="reset"
-              onClick={() => {
-                setQuery("");
-                setIndex(0);
-              }}
-            >
-              Xóa bộ lọc
-            </button>
+            <div className="directory-filter-actions">
+              <button className="btn primary">Tìm kiếm</button>
+              <button
+                className="btn"
+                type="reset"
+                onClick={() => {
+                  setQuery("");
+                  setIndex(0);
+                }}
+              >
+                Xóa bộ lọc
+              </button>
+            </div>
           </form>
           {page === "classes" && (
             <div className="academic-toolbar">
@@ -333,7 +356,11 @@ export function ListPage({ page }: { page: string }) {
               <thead>
                 <tr>
                   {cols.map((k) => (
-                    <th key={k}>{page === "admin" && k === "activityStatus" ? "Trạng thái" : names[k]}</th>
+                    <th key={k}>
+                      {page === "admin" && k === "activityStatus"
+                        ? "Trạng thái"
+                        : names[k]}
+                    </th>
                   ))}
                   <th>Thao tác</th>
                 </tr>
@@ -368,7 +395,7 @@ export function ListPage({ page }: { page: string }) {
                         )}
                       </td>
                     ))}
-                    {(
+                    {
                       <td>
                         <div className="management-actions">
                           {["admin", "teachers"].includes(page) && (
@@ -399,7 +426,7 @@ export function ListPage({ page }: { page: string }) {
                           )}
                         </div>
                       </td>
-                    )}
+                    }
                   </tr>
                 ))}
               </tbody>
