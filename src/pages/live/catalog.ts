@@ -151,7 +151,7 @@ export const catalog: Record<string, Screen> = {
     create: act(
       "studentCreate",
       "Thêm sinh viên",
-      "fullName! dateOfBirth gender email! phone citizenId majorId! cohortId! administrativeClassId! trainingType! entranceScore reason!",
+      "fullName! dateOfBirth gender email! phone citizenId! majorId! cohortId! administrativeClassId! trainingType! entranceScore reason!",
     ),
     actions: [
       act(
@@ -159,7 +159,6 @@ export const catalog: Record<string, Screen> = {
         "Cập nhật sinh viên",
         "fullName dateOfBirth email phone citizenId administrativeClassId targetGpa academicWarningStatus academicWarningReason statusReason",
       ),
-      act("studentResendNotification", "Gửi lại email tài khoản"),
     ],
   },
   teachers: {

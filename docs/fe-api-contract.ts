@@ -463,7 +463,6 @@ export const API_URLS = {
     create: root + "/students",
     detail: (id: ID) => root + "/students/" + pathId(id),
     update: (id: ID) => root + "/students/" + pathId(id),
-    resendAccountNotification: (id: ID) => root + "/students/" + pathId(id) + "/account-notification/resend",
     me: root + "/students/me",
     updateMe: root + "/students/me",
     admissionPreview: root + "/students/admission/preview",

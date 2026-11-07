@@ -33,5 +33,35 @@ fieldset.live-fields,
 .card fieldset input[type="checkbox"] {
   width: auto;
 }
-dialog.live-dialog { margin:auto; border:0; padding:24px; width:min(640px,calc(100vw - 32px)); max-height:85dvh; overflow:auto; color:inherit; }
-dialog.live-dialog::backdrop { background:rgb(15 27 55 / .48); }
+dialog.live-dialog {
+  margin: auto;
+  border: 0;
+  padding: 24px;
+  width: min(640px, calc(100vw - 32px));
+  max-height: 85dvh;
+  overflow: auto;
+  color: inherit;
+}
+dialog.live-dialog::backdrop {
+  background: rgb(15 27 55 / 0.48);
+}
+.student-class-picker {
+  margin: 20px 0;
+  padding: 18px;
+  border: 1px solid #e1e5eb;
+  border-radius: 7px;
+  background: #fafbfc;
+}
+.student-class-picker h3 {
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+.student-class-picker p {
+  font-size: 12px;
+  color: #677383;
+  margin-bottom: 14px;
+  line-height: 1.6;
+}
+.student-class-picker > .academic-fields {
+  margin-bottom: 14px;
+}

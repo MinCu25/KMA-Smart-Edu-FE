@@ -11,6 +11,7 @@ import { semesterWireName } from "../../services/api/eduApi";
 import { semesterFormName } from "../../utils/semesterValidation";
 import { names, labels, type Action, type Row } from "./catalog";
 import { readAllPages, useLiveRequest } from "./client";
+import { AdministrativeClassSelect } from "./AdministrativeClassSelect";
 export const message = (e: unknown) =>
   e instanceof Error ? e.message : "Yêu cầu thất bại.";
 export function errorMap(e: unknown) {
@@ -77,6 +78,10 @@ export function ActionForm({
   const request = useLiveRequest(),
     { notify } = useUI();
   const isPrereq = action.op === "subjectSetPrerequisites";
+  const studentClassForm = ["studentCreate", "studentUpdate"].includes(
+    action.op,
+  );
+  const [classScope, setClassScope] = useState({ majorId: "", cohortId: "" });
   const [selected, setSelected] = useState<number[]>(
       ((row.prerequisites as SubjectResponse[]) ?? []).map((s) => s.id),
     ),
@@ -102,7 +107,11 @@ export function ActionForm({
     };
   }, [request, isPrereq]);
   const fields: Field[] = action.fields
-    .filter((f) => f !== "prerequisiteSubjectIds")
+    .filter(
+      (f) =>
+        f !== "prerequisiteSubjectIds" &&
+        !(studentClassForm && f.replace("!", "") === "administrativeClassId"),
+    )
     .map((f) => {
       const key = f.replace("!", "");
       return {
@@ -110,6 +119,10 @@ export function ActionForm({
         label: names[key],
         type: fieldType(key),
         required: f.endsWith("!"),
+        hint:
+          key === "citizenId" && action.op === "studentCreate"
+            ? "Nhập đủ 12 chữ số CCCD, giữ nguyên số 0 ở đầu."
+            : undefined,
         value: fieldType(key) === "checkbox" ? "yes" : initial(key, row),
         step: ["targetGpa", "entranceScore"].includes(key) ? "0.01" : "1",
         options:
@@ -225,7 +238,12 @@ export function ActionForm({
       </h2>
       {fields.some((f) =>
         ["majorId", "facultyId", "administrativeClassId"].includes(f.key),
-      ) && <p>Nhập ID ngành, khóa, lớp hoặc khoa do phòng đào tạo cung cấp.</p>}
+      ) && (
+        <p>
+          Nhập ID ngành, khóa hoặc khoa do phòng đào tạo cung cấp. Lớp hành
+          chính được tải theo ngành và khóa.
+        </p>
+      )}
       {isPrereq && !options ? (
         <>
           <p>{loadError || "Đang tải danh mục học phần…"}</p>
@@ -236,6 +254,27 @@ export function ActionForm({
       ) : (
         <EditForm
           fields={fields}
+          onValuesChange={
+            studentClassForm
+              ? (data) =>
+                  setClassScope({
+                    majorId: String(
+                      data.get(
+                        action.op === "studentCreate"
+                          ? "majorId"
+                          : "lookupMajorId",
+                      ) ?? "",
+                    ),
+                    cohortId: String(
+                      data.get(
+                        action.op === "studentCreate"
+                          ? "cohortId"
+                          : "lookupCohortId",
+                      ) ?? "",
+                    ),
+                  })
+              : undefined
+          }
           close={cancel}
           submit={
             isPrereq
@@ -247,6 +286,13 @@ export function ActionForm({
           validate={(f, errors) => {
             for (const [key, text] of Object.entries(parse(f).err))
               errors[key] = [text];
+            if (
+              action.op === "studentCreate" &&
+              !f.get("administrativeClassId")
+            )
+              errors._form = [
+                "Chọn lớp hành chính hợp lệ sau khi nhập ID ngành và ID khóa.",
+              ];
             return errors;
           }}
           save={async (f) => {
@@ -271,6 +317,43 @@ export function ActionForm({
             done();
           }}
         >
+          {studentClassForm && (
+            <section className="student-class-picker">
+              <h3>
+                {action.op === "studentUpdate"
+                  ? "Chuyển lớp hành chính (không bắt buộc)"
+                  : "Chọn lớp hành chính"}
+              </h3>
+              {action.op === "studentUpdate" && (
+                <>
+                  <p>
+                    Lớp hiện tại: {String(row.className ?? "Chưa có lớp")}. Chỉ
+                    chọn lớp mới khi muốn thay đổi.
+                  </p>
+                  <div className="academic-fields">
+                    <label>
+                      ID ngành
+                      <input type="number" min="1" name="lookupMajorId" />
+                    </label>
+                    <label>
+                      ID khóa
+                      <input type="number" min="1" name="lookupCohortId" />
+                    </label>
+                  </div>
+                </>
+              )}
+              <label>
+                Lớp hành chính{action.op === "studentCreate" ? " *" : ""}
+                <AdministrativeClassSelect
+                  key={`${classScope.majorId}:${classScope.cohortId}`}
+                  majorId={classScope.majorId}
+                  cohortId={classScope.cohortId}
+                  name="administrativeClassId"
+                  required={action.op === "studentCreate"}
+                />
+              </label>
+            </section>
+          )}
           {isPrereq && (
             <PrerequisiteChoices
               subjects={(options ?? []).filter((s) => s.id !== row.id)}

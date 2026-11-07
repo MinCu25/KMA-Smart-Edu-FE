@@ -2,6 +2,10 @@ import { API_URLS } from "../../../docs/fe-api-contract";
 export * from "../../../docs/fe-api-contract";
 
 export const ENDPOINTS = {
+  administrativeClasses: {
+    method: "GET",
+    url: "/api/v1/administrative-classes",
+  },
   admissionConfiguration: {
     method: "GET",
     url: "/api/v1/student-admissions/configuration",
@@ -57,10 +61,6 @@ export const ENDPOINTS = {
   studentGet: { method: "GET", url: API_URLS.students.detail },
   studentCreate: { method: "POST", url: API_URLS.students.create },
   studentUpdate: { method: "PUT", url: API_URLS.students.update },
-  studentResendNotification: {
-    method: "POST",
-    url: API_URLS.students.resendAccountNotification,
-  },
   myStudentGet: { method: "GET", url: API_URLS.students.me },
   myStudentUpdate: { method: "PATCH", url: API_URLS.students.updateMe },
   admissionPreview: { method: "POST", url: API_URLS.students.admissionPreview },

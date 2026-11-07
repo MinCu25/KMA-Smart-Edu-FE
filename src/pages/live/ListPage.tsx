@@ -8,6 +8,7 @@ import { Detail, Pager } from "../../components/academic-admin/AcademicUI";
 import type { PageResponse } from "../../services/api/backendContract";
 import { Opening } from "./Opening";
 import "./directory-filters.css";
+import { AdministrativeClassSelect } from "./AdministrativeClassSelect";
 
 const headings: Record<string, [string, string]> = {
   admin: ["Quản lý sinh viên", ""],
@@ -59,6 +60,7 @@ export function ListPage({ page }: { page: string }) {
     [detailError, setDetailError] = useState(""),
     [tab, setTab] = useState(0),
     [opening, setOpening] = useState(false);
+  const [classScope, setClassScope] = useState({ majorId: "", cohortId: "" });
   const [lookups, setLookups] = useState<Record<string, Row[]>>({}),
     [exporting, setExporting] = useState(false);
   const { notifyError } = useUI();
@@ -237,6 +239,14 @@ export function ListPage({ page }: { page: string }) {
           <form
             className={`admin-filter ${["admin", "teachers", "subjects"].includes(page) ? "directory-filters" : ""}`}
             key={query}
+            onChange={(e) => {
+              if (page !== "admin") return;
+              const data = new FormData(e.currentTarget);
+              setClassScope({
+                majorId: String(data.get("majorId") ?? ""),
+                cohortId: String(data.get("cohortId") ?? ""),
+              });
+            }}
             onSubmit={(e) => {
               e.preventDefault();
               const q = new URLSearchParams();
@@ -265,7 +275,20 @@ export function ListPage({ page }: { page: string }) {
                   {k === "keyword" && page === "admin"
                     ? "Từ khóa (MSSV hoặc họ tên)"
                     : names[k]}
-                  {lookups[k] ? (
+                  {page === "admin" && k === "classId" ? (
+                    <AdministrativeClassSelect
+                      key={`${classScope.majorId}:${classScope.cohortId}`}
+                      majorId={classScope.majorId}
+                      cohortId={classScope.cohortId}
+                      name="classId"
+                      initialValue={
+                        classScope.majorId === applied.get("majorId") &&
+                        classScope.cohortId === applied.get("cohortId")
+                          ? (applied.get("classId") ?? "")
+                          : ""
+                      }
+                    />
+                  ) : lookups[k] ? (
                     <select name={k} defaultValue={applied.get(k) ?? ""}>
                       <option value="">Tất cả</option>
                       {lookups[k].map((r) => (
@@ -314,6 +337,7 @@ export function ListPage({ page }: { page: string }) {
                 type="reset"
                 onClick={() => {
                   setQuery("");
+                  setClassScope({ majorId: "", cohortId: "" });
                   setIndex(0);
                 }}
               >
