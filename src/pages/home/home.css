@@ -1,9 +1,9 @@
 /* KMA – Cổng thông tin đào tạo · styles v2
    Chữ: Noto Serif (tiêu đề) + Be Vietnam Pro (nội dung). Cỡ chữ tối thiểu 13px. */
 .kma-home {
-  --navy: #1b2a52;
-  --navy-deep: #121d3b;
-  --crimson: #8a1c2b;
+  --brand: #941b2e;
+  --brand-deep: #701324;
+  --crimson: #941b2e;
   --gold: #b58b3a;
   --ink: #1d2433;
   --muted: #566075;
@@ -69,7 +69,7 @@
     box-shadow var(--t);
 }
 .kma-home :focus-visible {
-  outline: 3px solid #3f64b5;
+  outline: 3px solid #ad3548;
   outline-offset: 3px;
   border-radius: 2px;
 }
@@ -93,8 +93,8 @@
 .kma-home input:focus,
 .kma-home select:focus {
   outline: 0;
-  border-color: var(--navy);
-  box-shadow: 0 0 0 3px #1b2a5226;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px #941b2e26;
 }
 .kma-home input::placeholder {
   color: #7b8498;
@@ -164,7 +164,7 @@
 .kma-home .language {
   padding-left: 18px;
   border-left: 1px solid var(--line);
-  color: var(--navy);
+  color: var(--brand);
   font-weight: 600;
 }
 .kma-home .language span {
@@ -206,7 +206,7 @@
   font-size: 34px;
   line-height: 1.2;
   font-weight: 700;
-  color: var(--navy);
+  color: var(--brand);
   margin: 2px 0 4px;
 }
 .kma-home .academy-english {
@@ -246,7 +246,7 @@
   bottom: 5px;
   padding: 0 20px;
   border-radius: 99px;
-  background: var(--navy);
+  background: var(--brand);
   color: #fff;
   font-size: 15px;
   font-weight: 600;
@@ -260,9 +260,9 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--navy);
+  background: var(--brand);
   border-top: 3px solid var(--gold);
-  box-shadow: 0 4px 14px #121d3b2e;
+  box-shadow: 0 4px 14px #7013242e;
 }
 .kma-home .nav-inner {
   display: flex;
@@ -281,7 +281,7 @@
   padding: 0 18px;
   font-size: 16px;
   font-weight: 500;
-  color: #dbe2f2;
+  color: #f6e3e7;
   white-space: nowrap;
 }
 .kma-home .nav-links > a:after {
@@ -324,7 +324,7 @@
 .kma-home .nav-login:hover {
   background: #fff;
   border-color: #fff;
-  color: var(--navy);
+  color: var(--brand);
 }
 .kma-home .nav-login .icon {
   transition: transform var(--t);
@@ -379,7 +379,7 @@
   min-height: 0;
   aspect-ratio: 2/1;
   overflow: hidden;
-  background: var(--navy-deep);
+  background: var(--brand-deep);
   touch-action: pan-y;
 }
 /* Incoming frame fades over a fully opaque outgoing frame, avoiding a dark flash. */
@@ -451,7 +451,7 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: #121d3b99;
+  background: #70132499;
   border: 1px solid #ffffff55;
   color: #fff;
   backdrop-filter: blur(4px);
@@ -492,7 +492,7 @@
   padding: 3px 6px;
   border: 1px solid #ffffff26;
   border-radius: 99px;
-  background: #121d3b88;
+  background: #70132488;
   backdrop-filter: blur(8px);
 }
 .kma-home .slide-dot {
@@ -641,7 +641,7 @@
   font-size: 18px;
   line-height: 1.4;
   font-weight: 600;
-  color: var(--navy);
+  color: var(--brand);
 }
 .kma-home .slide-title:hover {
   color: var(--crimson);
@@ -656,16 +656,16 @@
 .kma-home .access-panel {
   align-self: stretch;
   border: 1px solid var(--line);
-  border-top: 4px solid var(--navy);
+  border-top: 4px solid var(--brand);
   padding: 26px 28px 22px;
   background: #fff;
-  box-shadow: 0 6px 24px #1b2a520d;
+  box-shadow: 0 6px 24px #941b2e0d;
 }
 .kma-home .access-panel h2 {
   font-family: var(--serif);
   font-size: 21px;
   font-weight: 700;
-  color: var(--navy);
+  color: var(--brand);
   margin-bottom: 18px;
 }
 .kma-home .role-tabs {
@@ -681,7 +681,7 @@
   color: var(--muted);
 }
 .kma-home .role-tabs button:hover {
-  color: var(--navy);
+  color: var(--brand);
 }
 .kma-home .role-tabs button:after {
   content: "";
@@ -690,12 +690,12 @@
   right: 0;
   bottom: -1px;
   height: 3px;
-  background: var(--navy);
+  background: var(--brand);
   transform: scaleX(0);
   transition: transform 0.25s var(--ease);
 }
 .kma-home .role-tabs button[aria-selected="true"] {
-  color: var(--navy);
+  color: var(--brand);
   font-weight: 700;
 }
 .kma-home .role-tabs button[aria-selected="true"]:after {
@@ -728,7 +728,7 @@
   color: #6b7488;
 }
 .kma-home .password-field > button:hover {
-  color: var(--navy);
+  color: var(--brand);
 }
 .kma-home .form-assist {
   display: flex;
@@ -743,26 +743,26 @@
   color: var(--muted);
 }
 .kma-home .form-assist button {
-  color: var(--navy);
+  color: var(--brand);
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 4px;
-  text-decoration-color: #1b2a5255;
+  text-decoration-color: #941b2e55;
 }
 .kma-home .form-assist button:hover {
   color: var(--crimson);
   text-decoration-color: currentColor;
 }
 .kma-home .primary {
-  background: var(--navy);
+  background: var(--brand);
   color: #fff;
-  border: 1px solid var(--navy);
+  border: 1px solid var(--brand);
   border-radius: 3px;
   font-weight: 600;
   padding: 11px 22px;
 }
 .kma-home .primary:hover {
-  background: var(--navy-deep);
+  background: var(--brand-deep);
   color: #fff;
 }
 .kma-home .primary:active {
@@ -818,7 +818,7 @@
   font-size: 24px;
   line-height: 1.35;
   font-weight: 700;
-  color: var(--navy);
+  color: var(--brand);
 }
 .kma-home .section-note,
 .kma-home .year-note {
@@ -856,11 +856,11 @@
   white-space: nowrap;
 }
 .kma-home .notice-tabs > button:not([aria-selected="true"]):hover {
-  background: #e8ebf3;
-  color: var(--navy);
+  background: #f7ecef;
+  color: var(--brand);
 }
 .kma-home .notice-tabs > button[aria-selected="true"] {
-  background: var(--navy);
+  background: var(--brand);
   color: #fff;
   font-weight: 600;
 }
@@ -991,7 +991,7 @@
   color: var(--muted);
 }
 .kma-home .notice-meta .category-label {
-  color: var(--navy);
+  color: var(--brand);
   font-weight: 600;
 }
 .kma-home .notice-meta .meta-sep {
@@ -1058,12 +1058,12 @@
   color: #44506a;
 }
 .kma-home .pagination button:hover:not(:disabled) {
-  border-color: var(--navy);
-  color: var(--navy);
+  border-color: var(--brand);
+  color: var(--brand);
 }
 .kma-home .pagination button[aria-current="page"] {
-  background: var(--navy);
-  border-color: var(--navy);
+  background: var(--brand);
+  border-color: var(--brand);
   color: #fff;
 }
 .kma-home .pagination button:disabled {
@@ -1079,7 +1079,7 @@
 .kma-home .empty-state button {
   display: block;
   margin: 14px auto 0;
-  color: var(--navy);
+  color: var(--brand);
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 4px;
@@ -1099,7 +1099,7 @@
   border-bottom: 1px solid var(--line);
   font-size: 15px;
   font-weight: 700;
-  color: var(--navy);
+  color: var(--brand);
 }
 .kma-home .plan-header span {
   font-size: 13px;
@@ -1169,10 +1169,10 @@
   background: var(--paper);
   font-size: 15px;
   font-weight: 600;
-  color: var(--navy);
+  color: var(--brand);
 }
 .kma-home .panel-footer-link:hover {
-  background: var(--navy);
+  background: var(--brand);
   color: #fff;
 }
 .kma-home .panel-footer-link .icon {
@@ -1196,7 +1196,7 @@
   text-align: left;
 }
 .kma-home .document-list button > span:first-child {
-  color: var(--navy);
+  color: var(--brand);
   display: flex;
 }
 .kma-home .document-list button > span:nth-child(2) {
@@ -1261,7 +1261,7 @@
   font-family: var(--serif);
   font-size: 21px;
   line-height: 1.4;
-  color: var(--navy);
+  color: var(--brand);
   margin: 6px 0 10px;
 }
 .kma-home .academy-story p {
@@ -1279,7 +1279,7 @@
   color: var(--crimson);
 }
 .kma-home .academy-story button:hover {
-  color: var(--navy);
+  color: var(--brand);
 }
 .kma-home .academy-story button .icon {
   transition: transform var(--t);
@@ -1310,7 +1310,7 @@
   top: 25px;
   width: 9px;
   height: 9px;
-  border: solid var(--navy);
+  border: solid var(--brand);
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
   transition: transform 0.25s var(--ease);
@@ -1334,8 +1334,8 @@
 
 /* Chân trang */
 .kma-home footer {
-  background: var(--navy);
-  color: #cbd5ea;
+  background: var(--brand);
+  color: #efd8de;
   border-top: 4px solid var(--gold);
 }
 .kma-home .footer-main {
@@ -1356,12 +1356,12 @@
   margin-top: 6px;
   font-size: 16px;
   font-weight: 500;
-  color: #e6ebf6;
+  color: #faedf0;
 }
 .kma-home .footer-identity > p:not(.footer-school) {
   margin-top: 10px;
   font-size: 15px;
-  color: #b5c2de;
+  color: #e4bfc8;
 }
 .kma-home .footer-wordmark {
   display: block;
@@ -1387,7 +1387,7 @@
   padding: 0;
   text-align: left;
   font-size: 15px;
-  color: #c3cee6;
+  color: #edcfd6;
 }
 .kma-home .footer-main a:hover,
 .kma-home .footer-main button:hover {
@@ -1396,9 +1396,9 @@
   text-underline-offset: 4px;
 }
 .kma-home .footer-bottom {
-  background: var(--navy-deep);
+  background: var(--brand-deep);
   font-size: 14px;
-  color: #a9b6d3;
+  color: #dfb6c0;
 }
 .kma-home .footer-bottom > .container {
   display: flex;
@@ -1413,16 +1413,16 @@
   max-height: 88vh;
   padding: 0;
   border: 0;
-  border-top: 4px solid var(--navy);
+  border-top: 4px solid var(--brand);
   border-radius: 3px;
   color: var(--ink);
-  box-shadow: 0 24px 80px #121d3b4d;
+  box-shadow: 0 24px 80px #7013244d;
 }
 .kma-home dialog[open] {
   animation: dlg 0.28s var(--ease);
 }
 .kma-home dialog[open]::backdrop {
-  background: #121d3b99;
+  background: #70132499;
   animation: bd 0.28s ease;
 }
 @keyframes dlg {
@@ -1453,7 +1453,7 @@
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.06em;
-  color: var(--navy);
+  color: var(--brand);
 }
 .kma-home .dialog-header button {
   display: grid;
@@ -1464,7 +1464,7 @@
   color: #4a566e;
 }
 .kma-home .dialog-header button:hover {
-  background: #e3e7f0;
+  background: #f2e5e9;
   color: var(--crimson);
 }
 .kma-home .dialog-body {
@@ -1474,7 +1474,7 @@
   font-family: var(--serif);
   font-size: 26px;
   line-height: 1.4;
-  color: var(--navy);
+  color: var(--brand);
   margin-bottom: 18px;
 }
 .kma-home .dialog-body p {
@@ -1539,7 +1539,7 @@
 }
 .kma-home .dialog-body th {
   background: var(--paper);
-  color: var(--navy);
+  color: var(--brand);
 }
 
 /* Responsive */
@@ -1668,7 +1668,7 @@
     padding: 6px 16px 14px;
     background: #fff;
     border-bottom: 1px solid var(--line);
-    box-shadow: 0 12px 20px #1b2a5218;
+    box-shadow: 0 12px 20px #941b2e18;
   }
   .kma-home .nav-links.open {
     display: flex;
