@@ -1,3 +1,5 @@
+> Tài liệu lịch sử trước 10/11/2026. Hợp đồng hiện hành là [API_SPECIFICATION.md](API_SPECIFICATION.md) và [fe-api-contract.ts](fe-api-contract.ts); xem [tình trạng FE](FRONTEND-INTEGRATION-STATUS.md). Các nhận định/API cũ bên dưới không đại diện bản hiện tại.
+
 # Hướng dẫn phát triển
 
 Đọc README.md và DTO-INTEGRATION.md trước khi tích hợp backend.

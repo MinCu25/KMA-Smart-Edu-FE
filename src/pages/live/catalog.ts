@@ -35,6 +35,9 @@ export const names: Record<string, string> = {
   statusReason: "Lý do cập nhật",
   facultyId: "ID khoa",
   facultyName: "Khoa",
+  recruitmentYear: "Năm tuyển dụng",
+  teachingSubjectIds: "Học phần có thể giảng dạy",
+  teachingSubjects: "Học phần có thể giảng dạy",
   lecturerCode: "Mã giảng viên",
   subjectCode: "Mã học phần",
   subjectName: "Tên học phần",
@@ -100,6 +103,7 @@ export const labels: Record<string, string> = {
   FAILED: "Thất bại",
   SENT: "Đã gửi",
   PENDING: "Đang chờ",
+  SKIPPED: "Không gửi",
 };
 export interface Action {
   op: Op;
@@ -114,7 +118,7 @@ const act = (op: Op, title: string, fields = ""): Action => ({
 export const profileAction = act(
   "myStudentUpdate",
   "Cập nhật hồ sơ",
-  "phone targetGpa",
+  "phone email targetGpa",
 );
 interface Screen {
   title: string;
@@ -146,20 +150,18 @@ export const catalog: Record<string, Screen> = {
     detail: "studentGet",
     columns:
       "studentCode fullName className majorName cohortCode activityStatus",
-    filters:
-      "keyword majorId cohortId classId activityStatus academicWarningStatus",
+    filters: "keyword majorId cohortId classId activityStatus",
     create: act(
       "studentCreate",
       "Thêm sinh viên",
-      "fullName! dateOfBirth gender email! phone citizenId majorId! cohortId! administrativeClassId! trainingType! entranceScore reason!",
+      "fullName! dateOfBirth gender email phone citizenId! majorId! cohortId! administrativeClassId! trainingType! entranceScore reason!",
     ),
     actions: [
       act(
         "studentUpdate",
         "Cập nhật sinh viên",
-        "fullName dateOfBirth email phone citizenId administrativeClassId targetGpa academicWarningStatus academicWarningReason statusReason",
+        "fullName dateOfBirth email phone citizenId targetGpa statusReason",
       ),
-      act("studentResendNotification", "Gửi lại email tài khoản"),
     ],
   },
   teachers: {
@@ -172,9 +174,15 @@ export const catalog: Record<string, Screen> = {
     create: act(
       "lecturerCreate",
       "Thêm giảng viên",
-      "fullName! dateOfBirth! email! phone citizenId facultyId! reason!",
+      "fullName! dateOfBirth! email! phone citizenId facultyId! recruitmentYear! teachingSubjectIds! reason!",
     ),
-    actions: [act("lecturerResendNotification", "Gửi lại email tài khoản")],
+    actions: [
+      act(
+        "lecturerUpdate",
+        "Cập nhật giảng viên",
+        "fullName dateOfBirth email phone citizenId teachingSubjectIds reason",
+      ),
+    ],
   },
   subjects: {
     title: "Danh mục học phần",

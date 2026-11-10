@@ -1,8 +1,5 @@
-/** HTTP contract verified against develop 8253c0e. Base URL is the BE origin
- * (or reverse-proxy prefix), not /api/v1. This client never falls back to mocks.
- * UI data sources must be switched as a whole after missing endpoints are supplied.
- */
-import type * as D from "../../types/dto";
+/** REST helpers for the 10/11/2026 contract. Demo types are separate. */
+import type * as D from "./backendContract";
 import { apiRequest, ApiError } from "./httpClient";
 import { semesterFormName } from "../../utils/semesterValidation";
 export function semesterWireName(display: string) {
@@ -101,21 +98,13 @@ export function createEduApi(options: {
         }),
     },
     users: {
-      search: (r: {
-        keyword?: string;
-        page?: number;
-        size?: number;
-        role?: string;
-        status?: string;
-      }) => {
-        if (r.role || r.status)
-          throw Error(
-            "API hiện chưa hỗ trợ lọc tài khoản theo vai trò/trạng thái. Không lọc trên một trang dữ liệu.",
-          );
-        return data<D.PageResponse<D.UserInfoResponse>>(
-          "/admin/users" + query(r, ["keyword", ...pageKeys]),
-        );
-      },
+      search: (r: D.AdminUserSearchQuery) =>
+        data<D.PageResponse<D.UserAccountSummaryResponse>>(
+          "/admin/users" +
+            query(r, ["keyword", "role", "status", "firstLogin", ...pageKeys]),
+        ),
+      detail: (userId: number) =>
+        data<D.UserAccountDetailResponse>(`/admin/users/${id(userId)}`),
       lock: (userId: number, reason: string) =>
         call<void>(`/admin/users/${id(userId)}/lock`, "POST", { reason }),
       unlock: (userId: number) =>
@@ -135,7 +124,6 @@ export function createEduApi(options: {
               "cohortId",
               "classId",
               "activityStatus",
-              "academicWarningStatus",
               ...pageKeys,
             ]),
         ),
@@ -143,15 +131,12 @@ export function createEduApi(options: {
         data<D.StudentResponse>(`/students/${id(studentId)}`),
       update: (studentId: number, r: D.UpdateStudentRequest) =>
         data<D.StudentResponse>(`/students/${id(studentId)}`, "PUT", {
-          studentCode: r.studentCode,
           fullName: r.fullName,
           dateOfBirth: r.dateOfBirth,
           email: r.email,
           phone: r.phone,
           citizenId: r.citizenId,
-          administrativeClassId: r.administrativeClassId,
           targetGpa: r.targetGpa,
-          academicWarningStatus: r.academicWarningStatus,
           statusReason: r.statusReason,
         }),
     },

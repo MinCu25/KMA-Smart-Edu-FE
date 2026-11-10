@@ -1,6 +1,6 @@
 import type { ResetPasswordRequest } from "../../types/dto";
 
-/** Integration boundary: no reset endpoint or email delivery is connected yet.
+/** Demo-only boundary: real API reset is handled by AccountsPage.
  * Backend must generate the temporary password, deliver it to the registered
  * address and set requirePasswordChange. Never accept a password from admin.
  */

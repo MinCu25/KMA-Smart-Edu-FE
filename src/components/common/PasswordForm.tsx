@@ -19,6 +19,8 @@ export function PasswordForm() {
         ...errors.newPassword,
         "Mật khẩu mới phải khác mật khẩu hiện tại.",
       ];
+    if (f.get("newPassword") === session?.user.username)
+      errors.newPassword.push("Mật khẩu mới phải khác tên đăng nhập.");
     return errors;
   });
   return (

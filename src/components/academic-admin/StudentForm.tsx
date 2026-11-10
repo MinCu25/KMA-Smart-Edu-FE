@@ -48,32 +48,29 @@ export function StudentForm({
     {
       key: "citizenId",
       label: "CCCD",
+      required: !d,
       value: d?.citizenId ?? a.people[d?.studentCode ?? ""]?.citizenId,
     },
     {
       key: "email",
       label: "Email",
       type: "email",
-      required: true,
       value: d?.email,
     },
     { key: "phone", label: "Số điện thoại", value: d?.phone },
-    {
-      key: "administrativeClassId",
-      label: "Lớp hành chính",
-      required: true,
-      value: a.adminClasses.find((c) => c.className === d?.className)?.id,
-      options: a.adminClasses
-        .filter(
-          (c) =>
-            !d ||
-            (c.cohortCode === d.cohortCode && c.majorName === d.majorName),
-        )
-        .map((c) => ({
-          value: c.id,
-          label: `${c.className} · ${c.majorName} · ${c.cohortCode}`,
-        })),
-    },
+    ...(!d
+      ? [
+          {
+            key: "administrativeClassId",
+            label: "Lớp hành chính",
+            required: true,
+            options: a.adminClasses.map((c) => ({
+              value: c.id,
+              label: `${c.className} · ${c.majorName} · ${c.cohortCode}`,
+            })),
+          },
+        ]
+      : []),
     ...(d
       ? [
           {
@@ -92,14 +89,13 @@ export function StudentForm({
             label: "Điểm đầu vào",
             type: "number",
             min: 0,
-            max: 30,
             step: "0.01",
           },
         ]),
     {
       key: "reason",
       label: d ? "Lý do cập nhật" : "Lý do thêm mới",
-      required: true,
+      required: !d,
     },
   ];
   return (
@@ -109,27 +105,9 @@ export function StudentForm({
       submit={d ? "Lưu hồ sơ" : "Tạo hồ sơ và tài khoản"}
       validate={(f, e) => {
         if (
-          studentData.some(
-            (s) =>
-              s.dto.id !== d?.id &&
-              s.dto.email.toLowerCase() === str(f, "email").toLowerCase(),
-          )
-        )
-          e.email = ["Email đã tồn tại trong hồ sơ sinh viên."];
-        if (
-          auth.users.some(
-            (u) =>
-              u.username !== d?.studentCode &&
-              (u.email ?? "").trim().toLowerCase() ===
-                str(f, "email").toLowerCase(),
-          )
-        )
-          e.email = ["Email đã được sử dụng bởi tài khoản khác."];
-        if (
           str(f, "citizenId") &&
-          Object.entries(a.people).some(
-            ([code, p]) =>
-              code !== d?.studentCode && p.citizenId === str(f, "citizenId"),
+          studentData.some(
+            s => s.dto.id !== d?.id && s.dto.activityStatus !== "DELETED" && (s.dto.citizenId ?? a.people[s.id]?.citizenId) === str(f, "citizenId"),
           )
         )
           e.citizenId = ["CCCD đã tồn tại."];
@@ -140,10 +118,23 @@ export function StudentForm({
           cls &&
           cls.className !== d?.className &&
           cls.maxCapacity &&
-          studentData.filter((s) => s.dto.className === cls.className).length >=
+          studentData.filter((s) => s.dto.activityStatus !== "DELETED" && s.dto.className === cls.className).length >=
             cls.maxCapacity
         )
           e.administrativeClassId = ["Lớp hành chính đã đủ sức chứa."];
+        for (const key of ["fullName", "email", "phone"]) {
+          if (str(f, key).length > 255) e[key] = ["Nội dung tối đa 255 ký tự."];
+        }
+        if (str(f, "reason").length > 500)
+          e.reason = ["Lý do tối đa 500 ký tự."];
+        const gpa = str(f, "targetGpa");
+        if (
+          gpa &&
+          (Number(gpa) < 0 ||
+            Number(gpa) > 4 ||
+            Math.abs(Number(gpa) * 100 - Math.round(Number(gpa) * 100)) > 1e-8)
+        )
+          e.targetGpa = ["GPA phải từ 0 đến 4, tối đa hai chữ số thập phân."];
         return e;
       }}
       save={async (f) => {
@@ -156,7 +147,6 @@ export function StudentForm({
           email: str(f, "email"),
           phone: str(f, "phone"),
           citizenId: str(f, "citizenId") || undefined,
-          administrativeClassId: cls.id,
         };
         let next: Student;
         if (d) {
@@ -165,10 +155,7 @@ export function StudentForm({
             targetGpa: str(f, "targetGpa") ? +str(f, "targetGpa") : undefined,
             statusReason: str(f, "reason"),
           };
-          next = studentView({
-            ...updateStudent(d, request),
-            className: cls.className,
-          });
+          next = studentView(updateStudent(d, request));
           auth.setUsers((old) =>
             old.map((u) =>
               u.username === d.studentCode
@@ -183,6 +170,7 @@ export function StudentForm({
         } else {
           const request: CreateStudentRequest = {
             ...common,
+            administrativeClassId: cls.id,
             majorId: 1,
             cohortId: cls.cohortCode === "K2026" ? 1 : 2,
             entranceScore: str(f, "entranceScore")
@@ -210,8 +198,8 @@ export function StudentForm({
           ...old,
           [next.id]: {
             ...old[next.id],
-            citizenId: common.citizenId,
-            dateOfBirth: common.dateOfBirth,
+            ...(common.citizenId ? {citizenId: common.citizenId} : {}),
+            ...(common.dateOfBirth ? {dateOfBirth: common.dateOfBirth} : {}),
             reason: str(f, "reason"),
             ...(!d
               ? { emailStatus: "Chưa gửi — chưa kết nối dịch vụ email" }

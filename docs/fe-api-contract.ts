@@ -1,12 +1,11 @@
 /**
- * EduHub — hợp đồng FE theo source hiện tại (05/11/2026).
- * Đọc FE_API_INTEGRATION.md trước khi tích hợp.
- * Chỉ chứa 44 endpoint đã có controller. Không sinh URL cho chức năng dự kiến.
- * Đây là kiểu dữ liệu/hằng URL, không tự gửi request hoặc lưu token.
+ * EduHub — hợp đồng REST đối chiếu source ngày 10/11/2026.
+ * Đọc API_SPECIFICATION.md về validation, token, nullable và giới hạn nghiệp vụ.
+ * Chỉ chứa URL có controller; không chứa facade/endpoint dự kiến.
+ * Kiểu dữ liệu không phải runtime validator và không tự gửi request/lưu token.
  */
 
 export type ID = number; // JSON number của Java Long; không dùng username thay ID.
-export type UUID = string;
 export type LocalDate = string; // yyyy-MM-dd, giữ nguyên ngày, không đổi timezone.
 export type LocalDateTime = string; // ISO không có hậu tố Z; BE chạy main() ở UTC.
 export type Nullable<T> = T | null;
@@ -16,7 +15,7 @@ export type UserStatus = "ACTIVE" | "LOCKED" | "DISABLED";
 export type TrainingType = "CHINH_QUY" | "LIEN_THONG" | "VAN_BANG_2";
 export type ActivityStatus = "STUDYING" | "DEACTIVATED" | "DELETED";
 export type LecturerStatus = "ACTIVE" | "INACTIVE";
-export type AccountNotificationStatus = "PENDING" | "SENT" | "FAILED";
+export type AccountNotificationStatus = "PENDING" | "SENT" | "FAILED" | "SKIPPED";
 export type SubjectStatus = "ACTIVE" | "INACTIVE";
 export type SemesterStatus = "UPCOMING" | "ONGOING" | "ENDED";
 export type ModuleClassStatus = "UNSCHEDULED" | "SCHEDULED" | "OPEN" | "CANCELLED";
@@ -28,7 +27,7 @@ export interface FieldErrorDetail {
 }
 export type ApiSuccess<T = void> = {
   success: true;
-  message: string;
+  message?: string; // Search sinh viên/giảng viên có kết quả sẽ lược field này.
   timestamp: LocalDateTime;
 } & ([T] extends [void] ? { data?: never } : { data: T });
 
@@ -64,9 +63,9 @@ export interface LoginRequest {
 export interface UserInfoResponse {
   id: ID;
   username: string;
-  email: Nullable<string>; // Login hiện không map email; danh sách admin có map.
+  email: Nullable<string>; // Email tài khoản Identity trong login/facade.
   role: RoleName;
-  fullName: Nullable<string>; // Chưa map ở cả hai luồng.
+  fullName: Nullable<string>; // Login đọc tên hồ sơ theo role; thiếu hồ sơ/admin có thể null.
   firstLogin: boolean; // Java isFirstLogin -> JSON firstLogin.
   status: UserStatus;
 }
@@ -74,33 +73,58 @@ export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
   tokenType: "Bearer";
-  expiresIn: number; // Giây; hiện tại 900.
+  expiresIn: number; // Giây; mặc định 900, có thể thay qua cấu hình backend.
   user: UserInfoResponse;
-  requirePasswordChange: boolean;
+  requirePasswordChange: boolean; // true: JWT chỉ dùng đổi mật khẩu/đăng xuất; API nghiệp vụ trả 403/4006.
 }
 export interface LogoutRequest {
-  refreshToken: string; // Token của cùng phiên accessToken ở header.
+  refreshToken: string; // Cùng phiên accessToken ở header; logout chỉ revoke refresh token, access token còn hạn vẫn hợp lệ.
 }
 export interface ChangePasswordRequest {
   currentPassword?: Nullable<string>; // Bắt buộc theo nghiệp vụ nếu không first-login.
-  newPassword: string;
+  newPassword: string; // Đủ policy cả lần đầu; khác username, mật khẩu hiện tại và một mật khẩu chính thức trước đó.
   confirmPassword: string;
 }
+// Đổi mật khẩu thành công: xóa cả hai token và đăng nhập lại; server chỉ revoke refresh token.
+// Access token cũ vẫn hợp lệ đến exp tại Resource Server; endpoint kiểm tra phiên DB có thể từ chối sớm hơn.
 export interface AdminUserSearchQuery extends PageQuery {
-  keyword?: string; // Chỉ tìm username.
+  keyword?: string; // Tìm username hoặc email; trim/không phân biệt hoa thường/escape wildcard, sort ID tăng dần.
+  role?: RoleName;
+  status?: UserStatus;
+  firstLogin?: boolean; // false là lọc không cần đổi mật khẩu; bỏ tham số là không lọc.
+}
+export interface UserAccountSummaryResponse {
+  id: ID; // User ID, dùng cho API chi tiết và thao tác quản trị.
+  username: string;
+  role: RoleName;
+  status: UserStatus;
+}
+export interface UserAccountDetailResponse extends UserAccountSummaryResponse {
+  failedLoginCount: number;
+  lockedUntil: Nullable<LocalDateTime>; // Có thể giữ mốc đã hết hạn; không suy đang khóa chỉ từ việc khác null.
+  passwordChangedAt: Nullable<LocalDateTime>; // Cập nhật cả khi reset mật khẩu.
+  createdAt: Nullable<LocalDateTime>; // Metadata của User, không phải hồ sơ People.
+  updatedAt: Nullable<LocalDateTime>;
+  email: Nullable<string>;
+  firstLogin: boolean; // Đang cần đổi mật khẩu, bao gồm sau reset.
+  temporarilyLocked: boolean; // lockedUntil ở tương lai theo UTC, độc lập status=LOCKED.
+  fullName: Nullable<string>; // People trả theo User ID/role; admin hoặc thiếu hồ sơ trả null.
+  phone: Nullable<string>;
 }
 export interface LockBody {
-  reason: string; // userId nằm trong URL, KHÔNG gửi trong body.
+  reason: string; // Trim, không blank, <=500; Java dùng LockUserRequest, userId chỉ nằm trong URL.
 }
+// Lock/unlock/reset từ chối DISABLED bằng 409/4010; quyền SYSTEM_ADMIN/permission vẫn chưa được thực thi.
+// Reset gỡ khóa tạm, giữ LOCKED thủ công; revoke mọi refresh token, access token cũ vẫn có thể hợp lệ đến exp.
 
 // People — sinh viên
 export interface StudentSearchRequest extends PageQuery {
+  // page/size thuộc request query, mặc định 0/20; service kiểm tra page>=0, size>=1.
   keyword?: string;
   majorId?: ID;
   cohortId?: ID;
-  classId?: ID; // Query dùng classId; request ghi dùng administrativeClassId.
+  classId?: ID; // Query dùng classId; administrativeClassId chỉ thuộc request tạo, PUT không nhận đổi lớp.
   activityStatus?: ActivityStatus;
-  academicWarningStatus?: string; // Chuỗi tự do, chưa có enum trong BE.
 }
 export interface StudentResponse {
   id: ID; // Student ID, không phải User ID.
@@ -117,24 +141,24 @@ export interface StudentResponse {
   entranceScore: Nullable<number>;
   targetGpa: Nullable<number>;
   activityStatus: ActivityStatus;
-  academicWarningStatus: Nullable<string>;
+  academicWarningStatus: Nullable<string>; // Chỉ đọc dữ liệu đã lưu; cơ chế đánh giá đang hoãn.
   academicWarningReason: Nullable<string>;
   statusReason: Nullable<string>; // Hiện mapper không gán, thường null.
   createdAt: Nullable<LocalDateTime>;
 }
 export interface CreateStudentRequest {
-  fullName: string; // Không blank, <= 255.
-  dateOfBirth?: Nullable<LocalDate>; // DTO tạo SV hiện không có @Past.
-  gender?: Nullable<string>; // Chưa có enum.
-  email: string; // Email hợp lệ, <= 255.
-  phone?: Nullable<string>; // <= 255.
-  citizenId?: Nullable<string>; // <= 255.
+  fullName: string; // Không blank, <=255, trim.
+  dateOfBirth?: Nullable<LocalDate>; // Nếu có phải quá khứ.
+  gender?: Nullable<string>;
+  email?: Nullable<string>; // Có giá trị phải email hợp lệ, <=255; thiếu có thể SKIPPED.
+  phone?: Nullable<string>; // <=255.
+  citizenId: string; // DTO <=32; service bỏ whitespace và yêu cầu 12 chữ số.
   majorId: ID;
   cohortId: ID;
   administrativeClassId: ID;
-  trainingType: TrainingType;
-  entranceScore?: Nullable<number>; // >= 0.
-  reason: string; // Không blank; trim rồi <= 500.
+  trainingType?: TrainingType; // Bỏ field mặc định CHINH_QUY; phải khớp lớp.
+  entranceScore?: Nullable<number>; // Không âm.
+  reason: string; // Không blank, trim rồi <=500.
 }
 export interface CreateStudentResponse {
   student: StudentResponse;
@@ -143,97 +167,183 @@ export interface CreateStudentResponse {
   notificationError: Nullable<string>;
 }
 export interface UpdateStudentRequest {
-  studentCode?: null; // Mọi giá trị khác null đều bị BE từ chối: nên bỏ hẳn.
-  fullName?: Nullable<string>; // Có gửi khác null thì không được blank.
+  // Tương ứng UpdateStudentProfileRequest Java; giữ tên type FE và JSON hiện có.
+  fullName?: Nullable<string>; // Có gửi khác null thì không được blank, <=255 trước trim.
   dateOfBirth?: Nullable<LocalDate>; // Phải là ngày quá khứ.
-  email?: Nullable<string>; // Email hợp lệ.
-  phone?: Nullable<string>;
-  citizenId?: Nullable<string>;
-  administrativeClassId?: Nullable<ID>; // > 0.
-  targetGpa?: Nullable<number>; // DTO quản trị chỉ có min=0, chưa có max=4.
-  academicWarningStatus?: Nullable<string>;
-  academicWarningReason?: Nullable<string>;
-  statusReason?: Nullable<string>; // Chỉ ghi application log; không đổi activityStatus.
-}
-export interface AccountNotificationResponse {
-  studentId: ID;
-  studentCode: string;
-  notificationStatus: AccountNotificationStatus;
-  notificationError: Nullable<string>;
+  email?: Nullable<string>; // Email hợp lệ <=255, cập nhật User liên kết; null/bỏ field giữ nguyên ở PUT.
+  phone?: Nullable<string>; // <=255 trước trim; null/bỏ field giữ nguyên ở PUT.
+  citizenId?: Nullable<string>; // Bỏ whitespace, đúng 12 chữ số; không trùng Student khác chưa xóa.
+  targetGpa?: Nullable<number>; // 0..4, tối đa 2 chữ số thập phân; null/bỏ field giữ nguyên tại PUT.
+  // TODO(ACADEMIC_WARNING_EVALUATION): Chờ Academic đánh giá từ dữ liệu học tập/quy chế; không nhập tay cảnh báo.
+  statusReason?: Nullable<string>; // Lý do cập nhật <=500 trước trim; chỉ log, không đổi activityStatus.
+  // Key khác bị từ chối, kể cả null hoặc MSSV cũ; không gửi studentCode/administrativeClassId/ngành/khóa/hệ.
+  // TODO(STUDENT_ADMINISTRATIVE_CLASS_TRANSFER), TODO(STUDENT_MAJOR_TRANSFER): các use-case riêng, chưa có API.
 }
 export interface UpdateMyStudentProfileRequest {
-  targetGpa?: Nullable<number>; // 0..4; null xóa; bỏ field giữ nguyên.
+  // Tương ứng UpdateMyProfileRequest Java, chỉ dùng cho PATCH /students/me.
+  targetGpa?: Nullable<number>; // 0..4, tối đa 2 chữ số thập phân; null xóa; bỏ field giữ nguyên.
   phone?: Nullable<string>; // <= 255; null xóa; bỏ field giữ nguyên.
+  email?: Nullable<string>; // Email <=255 sau chuẩn hóa; lowercase, trống/null xóa tại User, bỏ field giữ nguyên.
   // Bất kỳ key khác đều bị BE từ chối, kể cả key có giá trị null.
 }
 
-// People — nhập học
-export interface AdmissionPreviewForm {
-  file: File; // Gửi FormData với key "file", không stringify.
+// Admission — kiểu REST giữ nguyên; form upload dùng File của trình duyệt.
+export type AdmissionPlanStatus =
+  | "DRAFT" | "CLASSES_READY" | "PREVIEWED"
+  | "CONFIRMING" | "PARTIALLY_CONFIRMED" | "CONFIRMED";
+export type AdmissionApplicantStatus =
+  | "VALID" | "INVALID" | "CONFLICT" | "EXISTING" | "ENROLLED" | "FAILED";
+export type AdmissionScenarioLevel = "NORMAL" | "RESERVE" | "BELOW_MINIMUM";
+export type NotificationStatus = "PENDING" | "SENT" | "FAILED" | "SKIPPED";
+
+export interface AdmissionScopeQuery {
+  majorId: ID;
+  cohortId: ID; // Khóa được chọn trên hệ thống; mẫu XLSX mới không chứa mã khóa.
 }
-export interface AdmissionClassAdjustmentRequest {
-  applicationCode: string;
-  targetClassId: ID;
+export interface CreateAdmissionPlanRequest extends AdmissionScopeQuery {
+  totalStudents: number; // >=0; lập theo số dự kiến.
+  minCapacity?: Nullable<number>;
+  maxCapacity?: Nullable<number>;
+  reserveCapacity?: Nullable<number>;
 }
-export interface AdmissionConfirmRequest {
-  actor?: Nullable<string>; // Source hiện nhận trực tiếp để ghi audit, không xác minh từ token.
-  acceptMinimumCapacityWarning?: boolean; // Mặc định false.
+export interface CreateAdmissionPlanFromFileForm extends AdmissionScopeQuery {
+  file: File; // Gửi multipart, convert các số thành chuỗi FormData.
+  minCapacity?: number;
+  maxCapacity?: number;
+  reserveCapacity?: number;
 }
-export interface AdmissionStudentPreview {
-  rowNumber: number; // Số dòng Excel, từ 1.
-  applicationCode: string;
-  fullName: string;
-  dateOfBirth: LocalDate;
-  gender: string;
-  email: string;
-  entranceScore: number;
-  majorCode: string;
-  cohortCode: string;
-  trainingType: string; // Parser giữ cách viết từ Excel; nên dùng enum IN HOA trong file.
-  assignedClassId: ID;
-  assignedClassName: string;
+export interface ImportAdmissionApplicantsForm {
+  file: File;
+  expectedRevision: number; // Revision mới nhất, scope lấy từ plan.
+}
+export interface PrepareAdmissionClassesRequest {
+  planId: ID;
+  expectedRevision: number;
+  classCount: number; // 1..99.
+  existingClassIds?: Nullable<ID[]>; // null/bỏ: tự dùng lại; []: tạo toàn bộ; ID[]: chọn rõ.
+  acceptReserve?: boolean;
+  acceptBelowMinimum?: boolean;
+  reason?: Nullable<string>; // <=500, bắt buộc khi chấp nhận dưới tối thiểu.
+}
+export interface PreviewAdmissionAllocationRequest {
+  expectedRevision: number;
+}
+export interface AdmissionAssignment {
+  applicantId: ID;
+  classId: ID;
+}
+export interface AdjustAdmissionAssignmentsRequest {
+  expectedRevision: number;
+  assignments: AdmissionAssignment[]; // Không rỗng, mỗi applicant chỉ chuyển một lần.
+}
+export interface ConfirmAdmissionEnrollmentRequest {
+  expectedRevision: number;
+  acceptReserve?: boolean;
+  acceptBelowMinimum?: boolean;
+  reason?: Nullable<string>;
+}
+export interface AdmissionCapacity {
+  minimum: number;
+  maximum: number;
+  reserve: number;
+}
+export interface AdmissionScenario {
+  classCount: number;
+  targetSizes: number[];
+  level: AdmissionScenarioLevel;
+  reserveUsed: number;
+  belowMinimum: boolean;
+  insufficientRooms: boolean;
+  suitableRooms: number;
+  requiredRoomCapacity: number;
+  recommended: boolean;
+  warnings: string[];
 }
 export interface AdmissionClassPreview {
-  classId: ID;
+  id: ID;
   className: string;
+  targetSize: number;
+  assignedSize: number;
   currentSize: number;
-  projectedSize: number;
-  minCapacity: number;
-  maxCapacity: number;
-  projectedAverageEntranceScore: number;
-  students: AdmissionStudentPreview[]; // Chỉ SV mới được phân vào lớp của batch.
+  minimum: number;
+  maximum: number;
+  reserve: number;
+  reserveUsed: number;
+  averageScore: Nullable<number>;
+  applicantIds: ID[];
 }
-export interface AdmissionErrorResponse {
-  rowNumber: number;
+export interface AdmissionApplicantResponse {
+  id: ID;
+  rowNumber: number; // Dòng vật lý Excel, từ 1.
   applicationCode: Nullable<string>;
-  field: string;
-  reason: string; // Lỗi import dùng reason, không phải message.
+  citizenId: Nullable<string>;
+  fullName: Nullable<string>;
+  dateOfBirth: Nullable<LocalDate>;
+  gender: Nullable<string>;
+  email: Nullable<string>;
+  phone: Nullable<string>;
+  entranceScore: Nullable<number>; // INVALID có thể không parse được điểm.
+  state: AdmissionApplicantStatus;
+  error: Nullable<string>;
+  assignedClassId: Nullable<ID>;
+  studentId: Nullable<ID>;
+  studentCode: Nullable<string>;
+  reusingAccount: boolean;
+  warnings: string[];
 }
-export interface AdmissionPreviewResponse {
-  batchId: UUID;
-  fileName: string;
-  totalRows: number;
-  validRows: number;
-  invalidRows: number; // Hiện đếm số lỗi, KHÔNG đảm bảo là số dòng lỗi distinct.
+export interface AdmissionPlanResponse {
+  id: ID;
+  revision: number;
+  majorId: ID;
+  cohortId: ID;
+  totalStudents: number;
+  capacity: AdmissionCapacity;
+  state: AdmissionPlanStatus;
+  selectedClassCount: Nullable<number>;
+  scenarios: AdmissionScenario[];
   classes: AdmissionClassPreview[];
-  errors: AdmissionErrorResponse[]; // Nằm trong data, khác errors của ApiError.
-  duplicateNameWarnings: string[];
-  capacityWarnings: string[];
+  applicants: AdmissionApplicantResponse[];
+  averageScoreDifference: number;
+  warnings: string[];
 }
-export interface AdmissionConfirmResponse {
-  batchId: UUID;
-  createdStudents: number;
-  createdUsers: number;
-  emailFailures: string[]; // applicationCode, không phải email/MSSV.
+export interface AdmissionConfirmationResponse {
+  planId: ID;
+  revision: number;
+  state: AdmissionPlanStatus;
+  enrolled: number;
+  failed: number;
+  skipped: number;
+  applicants: AdmissionApplicantResponse[];
+}
+export interface AdmissionNotificationResponse {
+  id: ID;
+  admissionId: ID;
+  state: NotificationStatus;
+  failureCount: number;
+  error: Nullable<string>;
+}
+export interface AdministrativeClassResponse {
+  id: ID;
+  className: string;
+  majorCode: string;
+  majorName: string;
+  cohortCode: string;
+  trainingType: TrainingType;
+  currentSize: Nullable<number>;
+  maxCapacity: Nullable<number>;
+  minCapacity: Nullable<number>;
+  reserveCapacity: Nullable<number>;
+  availableForAdmission: boolean;
 }
 
 // People — giảng viên
 export interface LecturerSearchRequest extends PageQuery {
+  // page/size thuộc request query, mặc định 0/20; service kiểm tra page>=0, size>=1.
   keyword?: string;
   lecturerCode?: string;
   fullName?: string;
   facultyId?: ID;
-  status?: LecturerStatus;
+  status?: LecturerStatus; // Trạng thái hồ sơ giảng viên; bỏ tham số lấy cả ACTIVE/INACTIVE.
 }
 export interface LecturerResponse {
   id: ID; // Lecturer ID, không phải User ID.
@@ -244,9 +354,9 @@ export interface LecturerResponse {
   dateOfBirth: Nullable<LocalDate>;
   citizenId: Nullable<string>;
   facultyId: Nullable<ID>;
-  accountNotificationStatus: Nullable<AccountNotificationStatus>;
-  accountNotificationError: Nullable<string>;
   facultyName: Nullable<string>;
+  recruitmentYear: Nullable<number>; // Dữ liệu cũ chưa biết năm giữ null.
+  teachingSubjects: SubjectSimpleResponse[]; // Giữ tên môn lịch sử đã ngừng/ẩn; hồ sơ cũ chưa có môn trả [].
   status: LecturerStatus;
 }
 export interface CreateLecturerRequest {
@@ -254,9 +364,23 @@ export interface CreateLecturerRequest {
   dateOfBirth: LocalDate; // Bắt buộc, ngày quá khứ.
   email: string; // Email hợp lệ, <= 255.
   phone?: Nullable<string>; // <= 255.
-  citizenId?: Nullable<string>; // <= 255.
-  facultyId: ID;
+  citizenId?: Nullable<string>; // <=255 trước chuẩn hóa; nếu có phải đúng 12 chữ số sau bỏ whitespace.
+  facultyId: ID; // Khoa ACTIVE/chưa xóa, có mã khoa chính thức.
+  recruitmentYear: number; // Bắt buộc, năm bốn chữ số 1000..9999; không tự lấy năm hiện tại.
+  teachingSubjectIds: ID[]; // Ít nhất một ID dương, không null; trùng ID được gộp, môn phải ACTIVE/chưa xóa.
   reason: string; // Không blank, <= 500.
+}
+export interface UpdateLecturerRequest {
+  // Tương ứng UpdateLecturerProfileRequest Java; PUT theo Lecturer ID, không nhận field ngoài danh sách này.
+  // Bỏ field/null giữ nguyên, {} không đổi dữ liệu nghiệp vụ; vẫn cần JWT/User/phiên hợp lệ.
+  fullName?: Nullable<string>; // Không blank, <=255 trước trim.
+  dateOfBirth?: Nullable<LocalDate>; // Ngày trong quá khứ.
+  email?: Nullable<string>; // Chuẩn hóa trim/lowercase, <=255; chuỗi rỗng/trắng xóa User.email.
+  phone?: Nullable<string>; // <=255 trước trim; chuỗi trắng thành chuỗi rỗng.
+  citizenId?: Nullable<string>; // Đúng 12 chữ số sau bỏ whitespace; chuỗi trắng không hợp lệ.
+  teachingSubjectIds?: Nullable<ID[]>; // Thay toàn bộ tập môn; [] bị từ chối, từng ID dương/không null.
+  // ID lặp được gộp, mọi môn phải ACTIVE/chưa xóa; bỏ/null giữ cả môn lịch sử đã ngừng/ẩn.
+  reason?: Nullable<string>; // <=500 trước trim, tùy chọn; không dùng statusReason của sinh viên.
 }
 export interface CreateLecturerResponse {
   lecturer: LecturerResponse;
@@ -264,12 +388,9 @@ export interface CreateLecturerResponse {
   notificationStatus: AccountNotificationStatus;
   notificationError: Nullable<string>;
 }
-export interface LecturerNotificationResponse {
-  lecturerId: ID;
-  lecturerCode: string;
-  notificationStatus: AccountNotificationStatus;
-  notificationError: Nullable<string>;
-}
+// Tạo SV đơn lẻ/GV kiểm tra User/phiên từ principal, chỉ gửi một lần sau commit.
+// Kết quả gửi chỉ có trong response create, không lưu lâu dài; không có resend/retry.
+// Bản ghi/API trạng thái thông báo nhập học vẫn giữ riêng để vận hành retry.
 
 // Curriculum — học phần
 export interface SubjectSearchRequest extends PageQuery {
@@ -442,69 +563,81 @@ export interface RoomResponse {
   status: RoomStatus;
 }
 
-// URL tương đối đã gồm /api/v1: ghép với origin, ví dụ http://localhost:8080.
-// Không cộng /api/v1 lần thứ hai. UUID cũng được encode khi đưa vào path.
-const root = "/api/v1";
-const pathId = (id: ID | UUID): string => encodeURIComponent(String(id));
+// URL đã gồm /api/v1; query và HTTP method theo API_SPECIFICATION.md.
+const API_BASE_PATH = "/api/v1";
+const encodePathId = (id: ID): string => encodeURIComponent(String(id));
 export const API_URLS = {
   auth: {
-    login: root + "/auth/login",
-    logout: root + "/auth/logout",
-    changePassword: root + "/auth/change-password",
+    login: API_BASE_PATH + "/auth/login",
+    logout: API_BASE_PATH + "/auth/logout",
+    changePassword: API_BASE_PATH + "/auth/change-password",
   },
   adminUsers: {
-    list: root + "/admin/users",
-    lock: (userId: ID) => root + "/admin/users/" + pathId(userId) + "/lock",
-    unlock: (userId: ID) => root + "/admin/users/" + pathId(userId) + "/unlock",
-    resetPassword: (userId: ID) => root + "/admin/users/" + pathId(userId) + "/reset-password",
+    list: API_BASE_PATH + "/admin/users",
+    detail: (userId: ID) => API_BASE_PATH + "/admin/users/" + encodePathId(userId),
+    lock: (userId: ID) => API_BASE_PATH + "/admin/users/" + encodePathId(userId) + "/lock",
+    unlock: (userId: ID) => API_BASE_PATH + "/admin/users/" + encodePathId(userId) + "/unlock",
+    resetPassword: (userId: ID) => API_BASE_PATH + "/admin/users/" + encodePathId(userId) + "/reset-password",
   },
   students: {
-    list: root + "/students",
-    create: root + "/students",
-    detail: (id: ID) => root + "/students/" + pathId(id),
-    update: (id: ID) => root + "/students/" + pathId(id),
-    resendAccountNotification: (id: ID) => root + "/students/" + pathId(id) + "/account-notification/resend",
-    me: root + "/students/me",
-    updateMe: root + "/students/me",
-    admissionPreview: root + "/students/admission/preview",
-    admissionAssignment: (batchId: UUID) => root + "/students/admission/" + pathId(batchId) + "/assignment",
-    admissionConfirm: (batchId: UUID) => root + "/students/admission/" + pathId(batchId) + "/confirm",
+    list: API_BASE_PATH + "/students",
+    create: API_BASE_PATH + "/students",
+    detail: (id: ID) => API_BASE_PATH + "/students/" + encodePathId(id),
+    update: (id: ID) => API_BASE_PATH + "/students/" + encodePathId(id),
+    me: API_BASE_PATH + "/students/me",
+    updateMe: API_BASE_PATH + "/students/me",
+  },
+  admissions: {
+    configuration: API_BASE_PATH + "/student-admissions/configuration",
+    template: API_BASE_PATH + "/student-admissions/template",
+    createPlan: API_BASE_PATH + "/student-admissions/plans",
+    createPlanFromFile: API_BASE_PATH + "/student-admissions/plans/import",
+    planDetail: (planId: ID) => API_BASE_PATH + "/student-admissions/plans/" + encodePathId(planId),
+    importApplicants: (planId: ID) => API_BASE_PATH + "/student-admissions/plans/" + encodePathId(planId) + "/applicants",
+    previewAllocation: (planId: ID) => API_BASE_PATH + "/student-admissions/plans/" + encodePathId(planId) + "/allocation/preview",
+    adjustAssignments: (planId: ID) => API_BASE_PATH + "/student-admissions/plans/" + encodePathId(planId) + "/allocation",
+    confirmEnrollment: (planId: ID) => API_BASE_PATH + "/student-admissions/plans/" + encodePathId(planId) + "/confirm",
+    notifications: (planId: ID) => API_BASE_PATH + "/student-admissions/plans/" + encodePathId(planId) + "/notifications",
+  },
+  administrativeClasses: {
+    list: API_BASE_PATH + "/administrative-classes",
+    prepareFromAdmissionPlan: API_BASE_PATH + "/administrative-classes/from-admission-plan",
   },
   lecturers: {
-    list: root + "/lecturers",
-    create: root + "/lecturers",
-    detail: (id: ID) => root + "/lecturers/" + pathId(id),
-    resendAccountNotification: (id: ID) => root + "/lecturers/" + pathId(id) + "/account-notification/resend",
+    list: API_BASE_PATH + "/lecturers",
+    create: API_BASE_PATH + "/lecturers",
+    detail: (id: ID) => API_BASE_PATH + "/lecturers/" + encodePathId(id),
+    update: (id: ID) => API_BASE_PATH + "/lecturers/" + encodePathId(id),
   },
   subjects: {
-    list: root + "/subjects",
-    detail: (id: ID) => root + "/subjects/" + pathId(id),
-    create: root + "/subjects",
-    update: (id: ID) => root + "/subjects/" + pathId(id),
-    deactivate: (id: ID) => root + "/subjects/" + pathId(id) + "/deactivate",
-    delete: (id: ID) => root + "/subjects/" + pathId(id),
-    prerequisites: (id: ID) => root + "/subjects/" + pathId(id) + "/prerequisites",
+    list: API_BASE_PATH + "/subjects",
+    detail: (id: ID) => API_BASE_PATH + "/subjects/" + encodePathId(id),
+    create: API_BASE_PATH + "/subjects",
+    update: (id: ID) => API_BASE_PATH + "/subjects/" + encodePathId(id),
+    deactivate: (id: ID) => API_BASE_PATH + "/subjects/" + encodePathId(id) + "/deactivate",
+    delete: (id: ID) => API_BASE_PATH + "/subjects/" + encodePathId(id),
+    prerequisites: (id: ID) => API_BASE_PATH + "/subjects/" + encodePathId(id) + "/prerequisites",
   },
   semesters: {
-    list: root + "/semesters",
-    detail: (id: ID) => root + "/semesters/" + pathId(id),
-    create: root + "/semesters",
-    update: (id: ID) => root + "/semesters/" + pathId(id),
-    openingSubjects: (semesterId: ID) => root + "/semesters/" + pathId(semesterId) + "/opening-subjects",
-    createModuleClassesBatch: (semesterId: ID) => root + "/semesters/" + pathId(semesterId) + "/module-classes/batch",
+    list: API_BASE_PATH + "/semesters",
+    detail: (id: ID) => API_BASE_PATH + "/semesters/" + encodePathId(id),
+    create: API_BASE_PATH + "/semesters",
+    update: (id: ID) => API_BASE_PATH + "/semesters/" + encodePathId(id),
+    openingSubjects: (semesterId: ID) => API_BASE_PATH + "/semesters/" + encodePathId(semesterId) + "/opening-subjects",
+    createModuleClassesBatch: (semesterId: ID) => API_BASE_PATH + "/semesters/" + encodePathId(semesterId) + "/module-classes/batch",
   },
   moduleClasses: {
-    list: root + "/module-classes",
-    detail: (id: ID) => root + "/module-classes/" + pathId(id),
-    update: (id: ID) => root + "/module-classes/" + pathId(id),
-    cancel: (id: ID) => root + "/module-classes/" + pathId(id) + "/cancel",
+    list: API_BASE_PATH + "/module-classes",
+    detail: (id: ID) => API_BASE_PATH + "/module-classes/" + encodePathId(id),
+    update: (id: ID) => API_BASE_PATH + "/module-classes/" + encodePathId(id),
+    cancel: (id: ID) => API_BASE_PATH + "/module-classes/" + encodePathId(id) + "/cancel",
   },
   rooms: {
-    list: root + "/rooms",
-    detail: (id: ID) => root + "/rooms/" + pathId(id),
-    create: root + "/rooms",
-    update: (id: ID) => root + "/rooms/" + pathId(id),
-    changeStatus: (id: ID) => root + "/rooms/" + pathId(id) + "/status",
-    delete: (id: ID) => root + "/rooms/" + pathId(id),
+    list: API_BASE_PATH + "/rooms",
+    detail: (id: ID) => API_BASE_PATH + "/rooms/" + encodePathId(id),
+    create: API_BASE_PATH + "/rooms",
+    update: (id: ID) => API_BASE_PATH + "/rooms/" + encodePathId(id),
+    changeStatus: (id: ID) => API_BASE_PATH + "/rooms/" + encodePathId(id) + "/status",
+    delete: (id: ID) => API_BASE_PATH + "/rooms/" + encodePathId(id),
   },
 } as const;

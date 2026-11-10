@@ -21,11 +21,12 @@ const headings: Record<string, [string, string]> = {
   ],
   classes: [
     "Lớp học phần & lịch học",
-    "Tạo lớp, xếp lịch, rồi công bố cho sinh viên đăng ký.",
+    "Mở lớp theo kỳ, cập nhật sức chứa và hủy lớp.",
   ],
 };
 const short: Record<string, string> = {
   studentUpdate: "Sửa",
+  lecturerUpdate: "Sửa",
   subjectUpdate: "Sửa",
   subjectSetPrerequisites: "Tiên quyết",
   subjectDelete: "Xóa mềm",
@@ -35,8 +36,7 @@ const short: Record<string, string> = {
 function enabled(a: Action, row: Row) {
   if (a.op.startsWith("moduleClass") && row.status === "CANCELLED")
     return false;
-  if (a.op === "semesterUpdate" && (row.isLocked || row.status === "ENDED"))
-    return false;
+  if (a.op === "semesterUpdate" && row.status === "ENDED") return false;
   return !(
     row.status === "INACTIVE" &&
     ["subjectUpdate", "subjectSetPrerequisites", "subjectDeactivate"].includes(
@@ -477,7 +477,7 @@ export function ListPage({ page }: { page: string }) {
                   Đóng
                 </button>
                 {s.actions
-                  .filter((a) => a.op.endsWith("ResendNotification"))
+                  .filter((a) => a.op === "lecturerUpdate")
                   .map((a) => (
                     <button
                       key={a.op}

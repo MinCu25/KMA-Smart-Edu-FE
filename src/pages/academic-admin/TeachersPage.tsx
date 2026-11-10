@@ -2,8 +2,8 @@ import {
   lecturerEmailError,
   normalizeEmail,
 } from "../../services/academic/lecturers";
-import type { LecturerResponse } from "../../types/dto";
-import { ResendAccountEmail } from "../../components/academic-admin/ResendAccountEmail";
+import type { DemoLecturer } from "../../context/AcademicContext";
+import type { Field } from "../../components/academic-admin/AcademicUI";
 import { useState } from "react";
 import { useAcademic } from "../../context/AcademicContext";
 import { useAuth } from "../../context/AuthContext";
@@ -13,11 +13,10 @@ import {
   EditForm,
   Detail,
   Pager,
-  personFields,
   faculties,
   str,
 } from "../../components/academic-admin/AcademicUI";
-import type { CreateLecturerRequest } from "../../types/dto";
+
 export default function TeachersPage() {
   const a = useAcademic(),
     auth = useAuth(),
@@ -35,140 +34,12 @@ export default function TeachersPage() {
       (!faculty || t.facultyName === faculty) &&
       (!status || t.status === status),
   );
-  function editEmail(t: LecturerResponse) {
+  function edit(t?: DemoLecturer) {
     setDialog({
-      title: `Cập nhật email · ${t.lecturerCode}`,
-      content: (
-        <EditForm
-          fields={[
-            {
-              key: "email",
-              label: "Email",
-              type: "email",
-              required: true,
-              value: t.email ?? "",
-            },
-          ]}
-          close={() => setDialog(null)}
-          validate={(f, e) => {
-            const message = lecturerEmailError(
-              str(f, "email"),
-              t.lecturerCode,
-              a.data.teachers,
-              auth.users,
-            );
-            if (message) e.email = [message];
-            return e;
-          }}
-          save={(f) => {
-            const email = normalizeEmail(str(f, "email"));
-            a.setData((old) => ({
-              ...old,
-              teachers: old.teachers.map((x) =>
-                x.id === t.id ? { ...x, email } : x,
-              ),
-            }));
-            auth.setUsers((old) =>
-              old.map((u) =>
-                u.username === t.lecturerCode && u.role === "LECTURER"
-                  ? { ...u, email }
-                  : u,
-              ),
-            );
-            log("Admin học vụ", "Cập nhật email giảng viên", t.lecturerCode);
-            setDialog(null);
-            notify("Đã cập nhật email hồ sơ và tài khoản giảng viên.");
-          }}
-        />
-      ),
-    });
-  }
-  function add() {
-    setDialog({
-      title: "Thêm mới giảng viên",
-      content: (
-        <EditForm
-          fields={personFields}
-          close={() => setDialog(null)}
-          submit="Tạo hồ sơ và tài khoản"
-          validate={(f, e) => {
-            const emailError = lecturerEmailError(
-              str(f, "email"),
-              "",
-              a.data.teachers,
-              auth.users,
-            );
-            if (emailError) e.email = [emailError];
-            if (
-              str(f, "citizenId") &&
-              Object.values(a.people).some(
-                (p) => p.citizenId === str(f, "citizenId"),
-              )
-            )
-              e.citizenId = ["CCCD đã tồn tại."];
-            return e;
-          }}
-          save={async (f) => {
-            const p: CreateLecturerRequest = {
-              fullName: str(f, "fullName"),
-              dateOfBirth: str(f, "dateOfBirth") || undefined,
-              citizenId: str(f, "citizenId") || undefined,
-              email: normalizeEmail(str(f, "email")),
-              phone: str(f, "phone"),
-              facultyId: +str(f, "facultyId"),
-              reason: str(f, "reason"),
-            };
-            const id = Math.max(0, ...a.data.teachers.map((t) => t.id)) + 1;
-            let seq = id,
-              code = "";
-            do {
-              code = `GV${String(seq++).padStart(3, "0")}`;
-            } while (auth.users.some((u) => u.username === code));
-            await auth.provisionAccounts([
-              {
-                username: code,
-                fullName: p.fullName,
-                role: "LECTURER",
-                email: p.email,
-              },
-            ]);
-            a.setData((d) => ({
-              ...d,
-              teachers: [
-                ...d.teachers,
-                {
-                  id,
-                  lecturerCode: code,
-                  fullName: p.fullName,
-                  email: p.email!,
-                  phone: p.phone!,
-                  facultyName: faculties.find((x) => x.value === p.facultyId)!
-                    .label,
-                  status: "ACTIVE",
-                },
-              ],
-            }));
-            a.setPeople((old) => ({
-              ...old,
-              [code]: {
-                citizenId: p.citizenId,
-                dateOfBirth: p.dateOfBirth,
-                reason: p.reason,
-                emailStatus: "Chưa gửi — chưa kết nối dịch vụ email",
-              },
-            }));
-            log(
-              "Admin học vụ",
-              "Tạo giảng viên",
-              `${code} · ${p.reason ?? ""}`,
-            );
-            setDialog(null);
-            notify(
-              `Đã tạo giảng viên ${code} và tài khoản. Email cấp tài khoản chưa được gửi.`,
-            );
-          }}
-        />
-      ),
+      title: t
+        ? `Cập nhật giảng viên · ${t.lecturerCode}`
+        : "Thêm mới giảng viên",
+      content: <LecturerEditor teacher={t} close={() => setDialog(null)} />,
     });
   }
   return (
@@ -178,7 +49,7 @@ export default function TeachersPage() {
           <h1>Quản lý giảng viên</h1>
           <p>Tra cứu hồ sơ theo mã, khoa và trạng thái hoạt động.</p>
         </div>
-        <button className="btn primary" onClick={add}>
+        <button className="btn primary" onClick={() => edit()}>
           Thêm mới giảng viên
         </button>
       </div>
@@ -270,12 +141,23 @@ export default function TeachersPage() {
                                       : "Ngừng hoạt động",
                                   ],
                                   [
-                                    "Email cấp tài khoản",
-                                    a.people[t.lecturerCode]?.emailStatus,
+                                    "Năm tuyển dụng",
+                                    t.recruitmentYear ?? "Chưa khai báo",
+                                  ],
+                                  [
+                                    "Học phần có thể dạy",
+                                    t.teachingSubjects
+                                      ?.map((x) => x.subjectName)
+                                      .join(", ") || "Chưa khai báo",
                                   ],
                                 ]}
                               />
-                              <ResendAccountEmail username={t.lecturerCode} />
+                              <button
+                                className="btn primary"
+                                onClick={() => edit(t)}
+                              >
+                                Cập nhật hồ sơ
+                              </button>
                             </>
                           ),
                         })
@@ -287,29 +169,11 @@ export default function TeachersPage() {
                   <td>
                     <button
                       className="text-link"
-                      onClick={() => editEmail(t)}
+                      onClick={() => edit(t)}
                       aria-label={`Cập nhật email ${t.lecturerCode}`}
                     >
                       {t.email || "Bổ sung email"}
                     </button>
-                    {lecturerEmailError(
-                      t.email ?? "",
-                      t.lecturerCode,
-                      a.data.teachers,
-                      auth.users,
-                    ) && (
-                      <span
-                        className="field-error"
-                        style={{ display: "block" }}
-                      >
-                        {lecturerEmailError(
-                          t.email ?? "",
-                          t.lecturerCode,
-                          a.data.teachers,
-                          auth.users,
-                        )}
-                      </span>
-                    )}
                   </td>
                   <td>{t.phone || "—"}</td>
                   <td>{t.facultyName}</td>
@@ -331,5 +195,258 @@ export default function TeachersPage() {
         <Pager total={rows.length} page={page} setPage={setPage} />
       </section>
     </>
+  );
+}
+
+// Explicit local catalog configuration; never inferred from a displayed faculty name.
+const demoFacultyCodes: Record<number, string> = {
+  1: "CNTT",
+  2: "ATTT",
+  3: "DTVT",
+};
+function LecturerEditor({
+  teacher: t,
+  close,
+}: {
+  teacher?: DemoLecturer;
+  close: () => void;
+}) {
+  const a = useAcademic(),
+    auth = useAuth(),
+    { notify } = useUI(),
+    { log } = useManagement();
+  const [subjectError, setSubjectError] = useState("");
+  const [changedSubjects, setChangedSubjects] = useState(false);
+  const currentIds = t?.teachingSubjects?.map((x) => x.id) ?? [];
+  const activeSubjects = a.data.subjects.filter((x) => x.status === "ACTIVE");
+  const options = [
+    ...activeSubjects,
+    ...(t?.teachingSubjects ?? []).filter(
+      (x) => !activeSubjects.some((s) => s.id === x.id),
+    ),
+  ];
+  const fields: Field[] = [
+    { key: "fullName", label: "Họ và tên", required: true, value: t?.fullName },
+    {
+      key: "dateOfBirth",
+      label: "Ngày sinh",
+      type: "date",
+      required: !t,
+      value: t ? a.people[t.lecturerCode]?.dateOfBirth : "",
+    },
+    {
+      key: "citizenId",
+      label: "CCCD",
+      value: t ? a.people[t.lecturerCode]?.citizenId : "",
+    },
+    {
+      key: "email",
+      label: "Email",
+      type: "email",
+      required: !t,
+      value: t?.email ?? "",
+    },
+    { key: "phone", label: "Số điện thoại", value: t?.phone ?? "" },
+    ...(!t
+      ? [
+          {
+            key: "facultyId",
+            label: "Khoa",
+            required: true,
+            options: faculties,
+          },
+          {
+            key: "recruitmentYear",
+            label: "Năm tuyển dụng",
+            type: "number",
+            required: true,
+            min: 1000,
+            max: 9999,
+          },
+        ]
+      : []),
+    {
+      key: "reason",
+      label: t ? "Lý do cập nhật" : "Lý do thêm mới",
+      required: !t,
+    },
+  ];
+  return (
+    <EditForm
+      fields={fields}
+      close={close}
+      submit={t ? "Lưu hồ sơ" : "Tạo hồ sơ và tài khoản"}
+      validate={(f, errors) => {
+        const email = normalizeEmail(str(f, "email"));
+        if (email || !t) {
+          const error = lecturerEmailError(
+            email,
+            t?.lecturerCode ?? "",
+            a.data.teachers,
+            auth.users,
+          );
+          if (error) errors.email = [error];
+        }
+        const citizen = str(f, "citizenId");
+        if (
+          citizen &&
+          a.data.teachers.some(
+            (x) =>
+              x.id !== t?.id && a.people[x.lecturerCode]?.citizenId === citizen,
+          )
+        )
+          errors.citizenId = ["CCCD đã tồn tại trong hồ sơ giảng viên."];
+        for (const key of ["fullName", "email", "phone", "citizenId"])
+          if (str(f, key).length > 255)
+            errors[key] = ["Nội dung tối đa 255 ký tự."];
+        if (str(f, "reason").length > 500)
+          errors.reason = ["Lý do tối đa 500 ký tự."];
+        const ids = f.getAll("teachingSubjectIds").map(Number);
+        const error =
+          (!t || changedSubjects) &&
+          (!ids.length ||
+            ids.some((id) => !activeSubjects.some((x) => x.id === id)))
+            ? "Chọn ít nhất một học phần đang hoạt động; bỏ môn đã ngừng trước khi thay danh sách."
+            : "";
+        setSubjectError(error);
+        if (error) errors.teachingSubjectIds = [error];
+        return errors;
+      }}
+      save={async (f) => {
+        const ids = f.getAll("teachingSubjectIds").map(Number);
+        const email = normalizeEmail(str(f, "email"));
+        const fullName = str(f, "fullName");
+        let next: DemoLecturer;
+        if (t) {
+          next = {
+            ...t,
+            fullName,
+            email,
+            phone: str(f, "phone"),
+            ...(!t || changedSubjects
+              ? {
+                  teachingSubjects: activeSubjects
+                    .filter((x) => ids.includes(x.id))
+                    .map(({ id, subjectCode, subjectName, credits }) => ({
+                      id,
+                      subjectCode,
+                      subjectName,
+                      credits,
+                    })),
+                }
+              : {}),
+          };
+          auth.setUsers((old) =>
+            old.map((u) =>
+              u.username === t.lecturerCode && u.role === "LECTURER"
+                ? { ...u, fullName, email: email || null }
+                : u,
+            ),
+          );
+        } else {
+          const facultyId = Number(str(f, "facultyId")),
+            recruitmentYear = Number(str(f, "recruitmentYear"));
+          const prefix = demoFacultyCodes[facultyId];
+          if (!prefix)
+            throw Error("Khoa chưa được cấu hình mã cấp giảng viên.");
+          const used = a.data.teachers.filter(
+            (x) =>
+              x.facultyId === facultyId &&
+              x.recruitmentYear === recruitmentYear,
+          );
+          let sequence = Math.max(
+            0,
+            ...used.map((x) => Number(x.lecturerCode.slice(-3)) || 0),
+          );
+          let code: string;
+          do {
+            code =
+              prefix +
+              String(recruitmentYear).slice(-2) +
+              String(++sequence).padStart(3, "0");
+          } while (auth.users.some((u) => u.username === code));
+          if (sequence > 999)
+            throw Error("Đã hết số thứ tự giảng viên của khoa/năm tuyển dụng.");
+          next = {
+            id: Math.max(0, ...a.data.teachers.map((x) => x.id)) + 1,
+            lecturerCode: code,
+            fullName,
+            email,
+            phone: str(f, "phone"),
+            facultyId,
+            facultyName: faculties.find((x) => x.value === facultyId)!.label,
+            recruitmentYear,
+            teachingSubjects: activeSubjects
+              .filter((x) => ids.includes(x.id))
+              .map(({ id, subjectCode, subjectName, credits }) => ({
+                id,
+                subjectCode,
+                subjectName,
+                credits,
+              })),
+            status: "ACTIVE",
+          };
+          await auth.provisionAccounts([
+            { username: code, fullName, email, role: "LECTURER" },
+          ]);
+        }
+        a.setData((old) => ({
+          ...old,
+          teachers: t
+            ? old.teachers.map((x) => (x.id === t.id ? next : x))
+            : [...old.teachers, next],
+        }));
+        a.setPeople((old) => ({
+          ...old,
+          [next.lecturerCode]: {
+            ...old[next.lecturerCode],
+            ...(str(f, "dateOfBirth")
+              ? { dateOfBirth: str(f, "dateOfBirth") }
+              : {}),
+            ...(str(f, "citizenId") ? { citizenId: str(f, "citizenId") } : {}),
+            reason: str(f, "reason"),
+          },
+        }));
+        log(
+          "Admin học vụ",
+          t ? "Cập nhật giảng viên" : "Tạo giảng viên",
+          next.lecturerCode,
+        );
+        close();
+        notify(
+          t
+            ? "Đã cập nhật hồ sơ giảng viên."
+            : `Đã tạo ${next.lecturerCode} và tài khoản. Email chưa được gửi.`,
+        );
+      }}
+    >
+      <label>
+        Học phần có thể giảng dạy{!t ? " *" : ""}
+        <select
+          multiple
+          name="teachingSubjectIds"
+          defaultValue={currentIds.map(String)}
+          onChange={() => setChangedSubjects(true)}
+          aria-describedby="demo-teaching-error"
+          size={Math.min(8, Math.max(3, options.length))}
+        >
+          {options.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.subjectCode} · {s.subjectName}
+              {!activeSubjects.some((x) => x.id === s.id) ? " (đã ngừng)" : ""}
+            </option>
+          ))}
+        </select>
+        <small>
+          Giữ Ctrl để chọn nhiều học phần. Hồ sơ cũ giữ nguyên danh sách nếu bạn
+          không thay đổi.
+        </small>
+        {subjectError && (
+          <span id="demo-teaching-error" className="field-error">
+            {subjectError}
+          </span>
+        )}
+      </label>
+    </EditForm>
   );
 }

@@ -1,6 +1,11 @@
 import { validateEmail } from "../../utils/profileValidation";
 import { ApiError } from "../api/httpClient";
-import type { UserInfoResponse, LoginResponse } from "../../types/dto";
+import type { UserInfoResponse } from "../../types/dto";
+import type {
+  LoginResponse,
+  RoleName,
+  UserStatus,
+} from "../api/backendContract";
 import { verifyPassword, storePassword } from "./passwordStore";
 export async function prepareAccounts(
   users: UserInfoResponse[],
@@ -12,7 +17,10 @@ export async function prepareAccounts(
   }[],
 ) {
   const seenEmails = new Set(
-    users.map((u) => (u.email ?? "").trim().toLowerCase()).filter(Boolean),
+    users
+      .filter((u) => u.role === "LECTURER")
+      .map((u) => (u.email ?? "").trim().toLowerCase())
+      .filter(Boolean),
   );
   for (const entry of entries) {
     const email = (entry.email ?? "").trim().toLowerCase();
@@ -22,11 +30,14 @@ export async function prepareAccounts(
         : email
           ? validateEmail(email)
           : "";
-    if (message || (email && seenEmails.has(email)))
+    if (
+      message ||
+      (entry.role === "LECTURER" && email && seenEmails.has(email))
+    )
       throw new ApiError(message || "Email đã được sử dụng.", 400, undefined, [
         { field: "email", message: message || "Email đã được sử dụng." },
       ]);
-    if (email) seenEmails.add(email);
+    if (entry.role === "LECTURER" && email) seenEmails.add(email);
   }
   const names = entries.map((x) => x.username);
   if (
@@ -60,7 +71,11 @@ export async function authenticateAccount(
     refreshToken: "local-session",
     tokenType: "Bearer",
     expiresIn: 3600,
-    user,
+    user: {
+      ...user,
+      role: user.role as RoleName,
+      status: user.status as UserStatus,
+    },
     requirePasswordChange: user.firstLogin,
   };
 }

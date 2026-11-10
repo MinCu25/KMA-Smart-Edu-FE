@@ -5,7 +5,12 @@ import {
 import { usePersistentState } from "../hooks/usePersistentState";
 import { userResponses } from "../data/mock/dtoFixtures";
 import { readStorage } from "../services/mock/storage";
-import { verifyPassword, storePassword } from "../services/mock/passwordStore";
+import {
+  verifyPassword,
+  verifyPreviousPassword,
+  storePassword,
+} from "../services/mock/passwordStore";
+import { validateNewPassword } from "../utils/profileValidation";
 import { requestPasswordReset } from "../services/api/passwordReset";
 import type {
   ChangePasswordRequest,
@@ -21,19 +26,33 @@ import {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
+  type SetStateAction,
   type ReactNode,
 } from "react";
 import { createEduApi } from "../services/api/eduApi";
 import { ApiError, backendEnabled } from "../services/api/httpClient";
-import type { LoginResponse } from "../types/dto";
+import type { LoginResponse } from "../services/api/backendContract";
 
 function useAuthState() {
   // Phiên đăng nhập mô phỏng; backend phải xác thực và phân quyền khi tích hợp thật.
-  const [users, setUsers] = usePersistentState<UserInfoResponse[]>(
+  const [users, setStoredUsers] = usePersistentState<UserInfoResponse[]>(
     "kma-users-v1",
     readStorage<{ accounts: UserInfoResponse[] }>("kma-dto-management-v3", {
       accounts: userResponses,
     }).accounts,
+  );
+  const usersRef = useRef(users);
+  usersRef.current = users;
+  const provisionQueue = useRef<Promise<void>>(Promise.resolve());
+  const setUsers = useCallback(
+    (update: SetStateAction<UserInfoResponse[]>) => {
+      const next =
+        typeof update === "function" ? update(usersRef.current) : update;
+      usersRef.current = next;
+      setStoredUsers(next);
+    },
+    [setStoredUsers],
   );
   const [session, setSession] = useState<LoginResponse | null>(null);
   const logged = session !== null;
@@ -46,14 +65,18 @@ function useAuthState() {
       const role = accountRole(data.user.role);
       setRole(role);
       setSession(data);
-      return { ok: true, page: data.requirePasswordChange ? passwordPage[role] : roleHome[role] } as const;
+      return {
+        ok: true,
+        page: data.requirePasswordChange ? passwordPage[role] : roleHome[role],
+      } as const;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Đăng nhập thất bại.";
+      const message =
+        error instanceof Error ? error.message : "Đăng nhập thất bại.";
       return { ok: false, message } as const;
     }
   }
   const clearSession = useCallback(() => {
-    setSession(current => current === session ? null : current);
+    setSession((current) => (current === session ? null : current));
   }, [session]);
   const api = useMemo(
     () =>
@@ -64,13 +87,41 @@ function useAuthState() {
     [session, clearSession],
   );
   async function logout() {
-    if (backendEnabled && session)
-      await api.auth.logout({ refreshToken: session.refreshToken });
-    clearSession();
+    try {
+      if (backendEnabled && session)
+        await api.auth.logout({ refreshToken: session.refreshToken });
+    } catch (error) {
+      throw new Error(
+        "Đã xóa phiên trên trình duyệt nhưng chưa xác nhận đăng xuất với máy chủ. " +
+          (error instanceof Error
+            ? error.message
+            : "Vui lòng kiểm tra kết nối."),
+      );
+    } finally {
+      clearSession();
+    }
   }
+  const requirePasswordChange = useCallback(() => {
+    setSession((current) =>
+      current === session && current
+        ? {
+            ...current,
+            requirePasswordChange: true,
+            user: { ...current.user, firstLogin: true },
+          }
+        : current,
+    );
+  }, [session?.accessToken]);
   useEffect(() => {
     if (!session) return;
-    const timer = setTimeout(clearSession, session.expiresIn * 1000);
+    const token = session.accessToken;
+    const timer = setTimeout(
+      () =>
+        setSession((current) =>
+          current?.accessToken === token ? null : current,
+        ),
+      session.expiresIn * 1000,
+    );
     if (backendEnabled) return () => clearTimeout(timer);
     const invalidate = (event: StorageEvent) => {
       if (
@@ -106,7 +157,7 @@ function useAuthState() {
       clearTimeout(timer);
       window.removeEventListener("storage", invalidate);
     };
-  }, [session]);
+  }, [session?.accessToken]);
   useEffect(() => {
     if (
       !backendEnabled &&
@@ -132,8 +183,16 @@ function useAuthState() {
       clearSession();
       return true;
     }
-    if (!request.newPassword.trim() || request.newPassword.length < 8)
-      throw Error("Mật khẩu mới phải có ít nhất 8 ký tự.");
+    const passwordErrors = validateNewPassword(request.newPassword);
+    if (request.newPassword === session.user.username)
+      passwordErrors.push("Mật khẩu mới phải khác tên đăng nhập.");
+    if (passwordErrors.length)
+      throw new ApiError(
+        "Mật khẩu mới chưa hợp lệ.",
+        400,
+        1001,
+        passwordErrors.map((message) => ({ field: "newPassword", message })),
+      );
     if (request.newPassword !== request.confirmPassword)
       throw Error("Mật khẩu xác nhận chưa khớp.");
     if (
@@ -145,8 +204,26 @@ function useAuthState() {
     )
       return false;
     if (await verifyPassword(session.user.username, request.newPassword))
-      throw Error("Mật khẩu mới phải khác mật khẩu hiện tại.");
-    await storePassword(session.user.username, request.newPassword);
+      throw new ApiError("Mật khẩu mới chưa hợp lệ.", 400, 1001, [
+        {
+          field: "newPassword",
+          message: "Mật khẩu mới phải khác mật khẩu hiện tại.",
+        },
+      ]);
+    if (
+      await verifyPreviousPassword(session.user.username, request.newPassword)
+    )
+      throw new ApiError("Mật khẩu mới chưa hợp lệ.", 400, 1001, [
+        {
+          field: "newPassword",
+          message: "Không được dùng lại mật khẩu chính thức ngay trước đó.",
+        },
+      ]);
+    await storePassword(
+      session.user.username,
+      request.newPassword,
+      !session.requirePasswordChange,
+    );
     setUsers((old) =>
       old.map((u) =>
         u.id === session.user.id ? { ...u, firstLogin: false } : u,
@@ -173,12 +250,17 @@ function useAuthState() {
       email?: string | null;
     }[],
   ) {
-    const created = await prepareAccounts(users, entries);
-    setUsers((old) => [...old, ...created]);
+    const task = provisionQueue.current.then(async () => {
+      const created = await prepareAccounts(usersRef.current, entries);
+      setUsers((old) => [...old, ...created]);
+    });
+    provisionQueue.current = task.catch(() => {});
+    return task;
   }
   return {
     api,
     clearSession,
+    requirePasswordChange,
     provisionAccounts,
     session,
     role,

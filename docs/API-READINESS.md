@@ -1,3 +1,5 @@
+> Tài liệu lịch sử trước 10/11/2026. Hợp đồng hiện hành là [API_SPECIFICATION.md](API_SPECIFICATION.md) và [fe-api-contract.ts](fe-api-contract.ts); xem [tình trạng FE](FRONTEND-INTEGRATION-STATUS.md). Các nhận định/API cũ bên dưới không đại diện bản hiện tại.
+
 # Tình trạng bàn giao — 2026-11-03
 
 Bản lưu ngày 03/11. Xem [hợp đồng hiện hành](FE_API_INTEGRATION.md) để tra cứu phiên bản 44 endpoint.

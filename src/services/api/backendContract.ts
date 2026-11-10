@@ -2,6 +2,48 @@ import { API_URLS } from "../../../docs/fe-api-contract";
 export * from "../../../docs/fe-api-contract";
 
 export const ENDPOINTS = {
+  adminUserGet: { method: "GET", url: API_URLS.adminUsers.detail },
+  lecturerUpdate: { method: "PUT", url: API_URLS.lecturers.update },
+  admissionConfiguration: {
+    method: "GET",
+    url: API_URLS.admissions.configuration,
+  },
+  admissionTemplate: { method: "GET", url: API_URLS.admissions.template },
+  admissionCreatePlan: { method: "POST", url: API_URLS.admissions.createPlan },
+  admissionImportPlan: {
+    method: "POST",
+    url: API_URLS.admissions.createPlanFromFile,
+  },
+  admissionPlanGet: { method: "GET", url: API_URLS.admissions.planDetail },
+  admissionImportApplicants: {
+    method: "POST",
+    url: API_URLS.admissions.importApplicants,
+  },
+  admissionPrepareClasses: {
+    method: "POST",
+    url: API_URLS.administrativeClasses.prepareFromAdmissionPlan,
+  },
+  administrativeClassesSearch: {
+    method: "GET",
+    url: API_URLS.administrativeClasses.list,
+  },
+  admissionPreviewAllocation: {
+    method: "POST",
+    url: API_URLS.admissions.previewAllocation,
+  },
+  admissionAdjustAssignments: {
+    method: "PATCH",
+    url: API_URLS.admissions.adjustAssignments,
+  },
+  admissionConfirmEnrollment: {
+    method: "POST",
+    url: API_URLS.admissions.confirmEnrollment,
+  },
+  admissionNotifications: {
+    method: "GET",
+    url: API_URLS.admissions.notifications,
+  },
+
   authLogin: { method: "POST", url: API_URLS.auth.login },
   authLogout: { method: "POST", url: API_URLS.auth.logout },
   authChangePassword: { method: "POST", url: API_URLS.auth.changePassword },
@@ -16,25 +58,11 @@ export const ENDPOINTS = {
   studentGet: { method: "GET", url: API_URLS.students.detail },
   studentCreate: { method: "POST", url: API_URLS.students.create },
   studentUpdate: { method: "PUT", url: API_URLS.students.update },
-  studentResendNotification: {
-    method: "POST",
-    url: API_URLS.students.resendAccountNotification,
-  },
   myStudentGet: { method: "GET", url: API_URLS.students.me },
   myStudentUpdate: { method: "PATCH", url: API_URLS.students.updateMe },
-  admissionPreview: { method: "POST", url: API_URLS.students.admissionPreview },
-  admissionAdjustAssignment: {
-    method: "PUT",
-    url: API_URLS.students.admissionAssignment,
-  },
-  admissionConfirm: { method: "POST", url: API_URLS.students.admissionConfirm },
   lecturersSearch: { method: "GET", url: API_URLS.lecturers.list },
   lecturerGet: { method: "GET", url: API_URLS.lecturers.detail },
   lecturerCreate: { method: "POST", url: API_URLS.lecturers.create },
-  lecturerResendNotification: {
-    method: "POST",
-    url: API_URLS.lecturers.resendAccountNotification,
-  },
   subjectsSearch: { method: "GET", url: API_URLS.subjects.list },
   subjectGet: { method: "GET", url: API_URLS.subjects.detail },
   subjectCreate: { method: "POST", url: API_URLS.subjects.create },

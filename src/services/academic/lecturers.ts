@@ -15,7 +15,12 @@ export function lecturerEmailError(
     teachers.some(
       (t) => t.lecturerCode !== code && normalizeEmail(t.email) === value,
     ) ||
-    users.some((u) => u.username !== code && normalizeEmail(u.email) === value)
+    users.some(
+      (u) =>
+        u.role === "LECTURER" &&
+        u.username !== code &&
+        normalizeEmail(u.email) === value,
+    )
   )
     return "Email đã được sử dụng. Vui lòng nhập email khác.";
   return "";
@@ -29,15 +34,12 @@ export function syncLecturerAccounts(
   let nextId = Math.max(0, ...users.map((u) => u.id));
   const result = [...users];
   for (const teacher of teachers) {
-    if (!normalizeEmail(teacher.email)) {
-      const index = result.findIndex(
-        (u) => u.role === "LECTURER" && u.username === teacher.lecturerCode,
-      );
-      // Quarantine invalid legacy identities; retain IDs/history, never delete grades.
-      if (index >= 0 && result[index].status === "ACTIVE")
-        result[index] = { ...result[index], status: "DISABLED" };
+    // Historical profiles may have no email or account; do not hide or disable them.
+    if (
+      !normalizeEmail(teacher.email) &&
+      !users.some((u) => u.username === teacher.lecturerCode)
+    )
       continue;
-    }
     const index = result.findIndex((u) => u.username === teacher.lecturerCode);
     if (index >= 0) {
       const old = result[index];

@@ -1,4 +1,4 @@
-import {accountRole} from "../src/config/navigation";
+import { accountRole } from "../src/config/navigation";
 import assert from "node:assert/strict";
 import {
   createStudent,
@@ -21,6 +21,8 @@ import { apiRequest, ApiError } from "../src/services/api/httpClient";
 const created = createStudent(
   {
     fullName: "Sinh viên kiểm thử",
+    citizenId: "000111222333",
+    reason: "Kiểm thử tạo hồ sơ",
     majorId: 1,
     cohortId: 1,
     administrativeClassId: 1,
@@ -32,7 +34,14 @@ assert.notEqual(String(created.id), created.studentCode);
 assert.equal(created.activityStatus, "STUDYING");
 assert.throws(() =>
   createStudent(
-    { fullName: "Test", majorId: 1, cohortId: 2, administrativeClassId: 1 },
+    {
+      fullName: "Test",
+      citizenId: "000111222334",
+      reason: "Kiểm thử scope",
+      majorId: 1,
+      cohortId: 2,
+      administrativeClassId: 1,
+    },
     studentResponses,
   ),
 );
@@ -105,10 +114,27 @@ await assert.rejects(
     e.code === 1001 &&
     e.errors[0].field === "fullName",
 );
-globalThis.fetch = async () => Response.json(null, {status: 401});
-await assert.rejects(apiRequest("/confirmed-path"), (e: unknown) => e instanceof ApiError && e.status === 401);
-globalThis.fetch = async () => Response.json({success: false, message: "Validation", errors: [null, {field:"email", message:"Sai email"}]}, {status:400});
-await assert.rejects(apiRequest("/confirmed-path"), (e: unknown) => e instanceof ApiError && e.errors.length === 1 && e.errors[0].field === "email");
+globalThis.fetch = async () => Response.json(null, { status: 401 });
+await assert.rejects(
+  apiRequest("/confirmed-path"),
+  (e: unknown) => e instanceof ApiError && e.status === 401,
+);
+globalThis.fetch = async () =>
+  Response.json(
+    {
+      success: false,
+      message: "Validation",
+      errors: [null, { field: "email", message: "Sai email" }],
+    },
+    { status: 400 },
+  );
+await assert.rejects(
+  apiRequest("/confirmed-path"),
+  (e: unknown) =>
+    e instanceof ApiError &&
+    e.errors.length === 1 &&
+    e.errors[0].field === "email",
+);
 globalThis.fetch = async () => new Response(null, { status: 204 });
 assert.equal(await apiRequest("/confirmed-path"), undefined);
 globalThis.fetch = async () => new Response("Not JSON", { status: 502 });
@@ -360,18 +386,23 @@ const newUsers = await prepareAccounts(
   [],
   [{ username: "CT202600001", fullName: "Test Student", role: "STUDENT" }],
 );
-const firstLogin = await authenticateAccount(
-  newUsers,
-  "CT202600001",
-  "12345",
-);
+const firstLogin = await authenticateAccount(newUsers, "CT202600001", "12345");
 assert.equal(firstLogin.requirePasswordChange, true);
 assert.equal(firstLogin.user.username, "CT202600001");
-for (const [wire, expected] of [["STUDENT","student"], ["LECTURER","lecturer"], ["ACADEMIC_ADMIN","academic-admin"], ["SYSTEM_ADMIN","system-admin"]]) {
-  const authenticated = await authenticateAccount(newUsers.map(user => ({...user,role:wire})), "CT202600001","12345");
-  assert.equal(accountRole(authenticated.user.role),expected);
+for (const [wire, expected] of [
+  ["STUDENT", "student"],
+  ["LECTURER", "lecturer"],
+  ["ACADEMIC_ADMIN", "academic-admin"],
+  ["SYSTEM_ADMIN", "system-admin"],
+]) {
+  const authenticated = await authenticateAccount(
+    newUsers.map((user) => ({ ...user, role: wire })),
+    "CT202600001",
+    "12345",
+  );
+  assert.equal(accountRole(authenticated.user.role), expected);
 }
-assert.throws(()=>accountRole("UNKNOWN"),/vai trò/i);
+assert.throws(() => accountRole("UNKNOWN"), /vai trò/i);
 await assert.rejects(
   authenticateAccount(
     newUsers.map((u) => ({ ...u, status: "LOCKED" })),
@@ -927,7 +958,11 @@ const invalidIdentity = syncLecturerAccounts(
   ],
   [{ ...lecturerResponses[0], lecturerCode: "NOEMAIL", email: "" }],
 );
-assert.equal(invalidIdentity[0].status, "DISABLED");
+assert.equal(
+  invalidIdentity[0].status,
+  "ACTIVE",
+  "Historical profile without email must not disable its account",
+);
 assert.equal(invalidIdentity[0].id, 900);
 assert.equal(invalidIdentity[0].firstLogin, false);
 import { createEduApi, semesterBody } from "../src/services/api/eduApi";
@@ -961,7 +996,14 @@ assert.equal(
 assert.equal(requests.at(-1)!.init.body, undefined);
 await api.users.unlock(12);
 assert.equal(requests.at(-1)!.init.body, undefined);
-assert.throws(() => api.users.search({ role: "LECTURER" }), /chưa hỗ trợ/);
+await api.users.search({
+  role: "LECTURER",
+  status: "ACTIVE",
+  firstLogin: false,
+});
+assert.ok(requests.at(-1)!.url.includes("role=LECTURER"));
+assert.ok(requests.at(-1)!.url.includes("status=ACTIVE"));
+assert.ok(requests.at(-1)!.url.includes("firstLogin=false"));
 const wireTerm = semesterBody({
   semesterName: "HK_1 - 2026-2027",
   startDate: "2026-09-01",
@@ -1003,47 +1045,512 @@ globalThis.fetch = async () =>
 await assert.rejects(api.students.detail(5), /Expired/);
 assert.equal(expired, 1);
 console.log(
-  "PASS: account isolation, score visibility, legacy status migration, invalid-account quarantine, HTTP paths/bodies/query/401",
+  "PASS: account isolation, score visibility, legacy status migration, historical no-email profile preservation, HTTP paths/bodies/query/401",
 );
 
 import { readFileSync } from "node:fs";
 import { ENDPOINTS } from "../src/services/api/backendContract";
-import { legacyRoomCodes, roomInput, validateRoom, searchRooms } from "../src/services/academic/rooms";
-const roomDocs = readFileSync("docs/FE_API_INTEGRATION.md","utf8");
-const documented = Array.from(roomDocs.matchAll(/\|\s*(GET|POST|PUT|PATCH|DELETE)\s*\|\s*`(\/api\/v1\/[^`]+)`/g), m=>m[1]+" "+m[2].replace(/\{[^}]+\}/g,"7"));
-const implemented = Object.values(ENDPOINTS).map(e=>e.method+" "+(typeof e.url==="string"?e.url:(e.url as (id:number)=>string)(7)));
-assert.equal(documented.length,44);
-assert.deepEqual(implemented.sort(),documented.sort());
-const roomForm=new FormData();
-for(const [key,value] of Object.entries({roomCode:" 102-ta1 ",roomName:" Phòng 102 ",campus:"cs1",buildingCode:"ta1",capacity:"100"})) roomForm.set(key,value);
-const payload=roomInput(roomForm);
-assert.equal(payload.roomCode,"102-TA1");
-assert.equal(payload.campus,"CS1");
+import {
+  legacyRoomCodes,
+  roomInput,
+  validateRoom,
+  searchRooms,
+} from "../src/services/academic/rooms";
+const roomDocs = readFileSync("docs/API_SPECIFICATION.md", "utf8");
+const documented = Array.from(
+  roomDocs.matchAll(
+    /\|\s*(GET|POST|PUT|PATCH|DELETE)\s*\|\s*`?(\/api\/v1\/[^` |]+)`?/g,
+  ),
+  (m) => m[1] + " " + m[2].replace(/\{[^}]+\}/g, "7"),
+);
+const implemented = Object.values(ENDPOINTS).map(
+  (e) =>
+    e.method +
+    " " +
+    (typeof e.url === "string" ? e.url : (e.url as (id: number) => string)(7)),
+);
+assert.equal(documented.length, 53);
+assert.deepEqual(implemented.sort(), documented.sort());
+const roomForm = new FormData();
+for (const [key, value] of Object.entries({
+  roomCode: " 102-ta1 ",
+  roomName: " Phòng 102 ",
+  campus: "cs1",
+  buildingCode: "ta1",
+  capacity: "100",
+}))
+  roomForm.set(key, value);
+const payload = roomInput(roomForm);
+assert.equal(payload.roomCode, "102-TA1");
+assert.equal(payload.campus, "CS1");
 assert(!("roomType" in payload || "roomNumber" in payload));
-assert.deepEqual(validateRoom(payload,{}),{});
-const invalidRoom=validateRoom({...payload,buildingCode:"B",roomNumber:"2",capacity:1.5},{});
-assert.deepEqual(Object.keys(invalidRoom).sort(),["buildingCode","capacity","roomNumber"]);
-const oldRoom={id:7,roomCode:"A201",buildingCode:"A",roomNumber:"201",roomName:"Phòng 201",roomType:"LECTURE",campus:"CS1",capacity:105,status:"ACTIVE" as const};
-assert.equal(legacyRoomCodes([oldRoom]).get("A201"),"201-A");
-assert.equal(legacyRoomCodes([oldRoom,{...oldRoom,id:8,roomCode:"201-A"}]).size,0);
-assert.deepEqual(searchRooms([oldRoom,{...oldRoom,id:8,deleted:true}],{keyword:"201",campus:"cs1",buildingCode:"a",minCapacity:105,status:"ACTIVE"}).map(r=>r.id),[7]);
-console.log("PASS: all 44 documented method/path pairs, room payload, validation, filters and legacy room references");
+assert.deepEqual(validateRoom(payload, {}), {});
+const invalidRoom = validateRoom(
+  { ...payload, buildingCode: "B", roomNumber: "2", capacity: 1.5 },
+  {},
+);
+assert.deepEqual(Object.keys(invalidRoom).sort(), [
+  "buildingCode",
+  "capacity",
+  "roomNumber",
+]);
+const oldRoom = {
+  id: 7,
+  roomCode: "A201",
+  buildingCode: "A",
+  roomNumber: "201",
+  roomName: "Phòng 201",
+  roomType: "LECTURE",
+  campus: "CS1",
+  capacity: 105,
+  status: "ACTIVE" as const,
+};
+assert.equal(legacyRoomCodes([oldRoom]).get("A201"), "201-A");
+assert.equal(
+  legacyRoomCodes([oldRoom, { ...oldRoom, id: 8, roomCode: "201-A" }]).size,
+  0,
+);
+assert.deepEqual(
+  searchRooms([oldRoom, { ...oldRoom, id: 8, deleted: true }], {
+    keyword: "201",
+    campus: "cs1",
+    buildingCode: "a",
+    minCapacity: 105,
+    status: "ACTIVE",
+  }).map((r) => r.id),
+  [7],
+);
+console.log(
+  "PASS: all 53 documented method/path pairs, room payload, validation, filters and legacy room references",
+);
 
 import { reconcileScheduledRooms } from "../src/services/academic/rooms";
 import { roomCatalog } from "../src/data/mock/catalogs";
 import { moduleClassResponses as scheduledFixtures } from "../src/data/mock/dtoFixtures";
-const oldRooms = roomCatalog.map(r=>({...oldRoom,...r}));
-const recovered = reconcileScheduledRooms(oldRooms,scheduledFixtures)!;
-for(const c of recovered.classes) for(const slot of c.schedules)
-  assert(recovered.rooms.some(r=>r.roomCode===slot.roomCode),slot.roomCode);
-assert.equal(new Set(recovered.rooms.map(r=>r.id)).size,recovered.rooms.length);
-assert.equal(reconcileScheduledRooms(recovered.rooms,recovered.classes),undefined);
-assert.equal(recovered.rooms.find(r=>r.roomCode==="201-A")?.id,101);
-console.log("PASS: every scheduled demo room is represented, IDs preserved, repeated migration is a no-op");
+const oldRooms = roomCatalog.map((r) => ({ ...oldRoom, ...r }));
+const recovered = reconcileScheduledRooms(oldRooms, scheduledFixtures)!;
+for (const c of recovered.classes)
+  for (const slot of c.schedules)
+    assert(
+      recovered.rooms.some((r) => r.roomCode === slot.roomCode),
+      slot.roomCode,
+    );
+assert.equal(
+  new Set(recovered.rooms.map((r) => r.id)).size,
+  recovered.rooms.length,
+);
+assert.equal(
+  reconcileScheduledRooms(recovered.rooms, recovered.classes),
+  undefined,
+);
+assert.equal(recovered.rooms.find((r) => r.roomCode === "201-A")?.id, 101);
+console.log(
+  "PASS: every scheduled demo room is represented, IDs preserved, repeated migration is a no-op",
+);
 
 import { roomFitsClass } from "../src/services/academic/classPlanning";
 assert.equal(roomFitsClass(oldRoom, oldRoom.capacity), true);
-assert.equal(roomFitsClass(oldRoom, oldRoom.capacity+1), false);
+assert.equal(roomFitsClass(oldRoom, oldRoom.capacity + 1), false);
 assert.equal(roomFitsClass(oldRoom, 10, "LAB"), false);
-assert.equal(roomFitsClass({...oldRoom, deleted:true}, 10), false);
-assert.equal(roomFitsClass({...oldRoom, status:"INACTIVE"}, 10), false);
+assert.equal(roomFitsClass({ ...oldRoom, deleted: true }, 10), false);
+assert.equal(roomFitsClass({ ...oldRoom, status: "INACTIVE" }, 10), false);
+
+// Current Nov 10 contract regressions (separate from historical demo DTO snapshot).
+import { catalog as liveCatalog } from "../src/pages/live/catalog";
+import {
+  capacity as admissionCapacity,
+  scenarios as admissionScenarios,
+  allocate as allocateAdmission,
+  summarize as summarizeAdmission,
+  checkExceptions,
+  suffix as admissionSuffix,
+} from "../src/services/mock/admissionDomain";
+import type {
+  AdmissionPlanResponse,
+  AdmissionApplicantResponse,
+} from "../src/services/api/backendContract";
+import { verifyPreviousPassword } from "../src/services/mock/passwordStore";
+const studentCreateFields = liveCatalog.admin.create!.fields;
+assert(studentCreateFields.includes("citizenId!"));
+assert(
+  studentCreateFields.includes("email") &&
+    !studentCreateFields.includes("email!"),
+);
+const studentUpdateFields = liveCatalog.admin.actions.find(
+  (x) => x.op === "studentUpdate",
+)!.fields;
+for (const forbidden of [
+  "studentCode",
+  "administrativeClassId",
+  "academicWarningStatus",
+  "academicWarningReason",
+])
+  assert(!studentUpdateFields.includes(forbidden), forbidden);
+assert(!liveCatalog.admin.filters.includes("academicWarningStatus"));
+assert(liveCatalog.teachers.create!.fields.includes("recruitmentYear!"));
+assert(
+  liveCatalog.teachers.create!.fields.some(
+    (x) => x.replace("!", "") === "teachingSubjectIds",
+  ),
+);
+assert(liveCatalog.teachers.actions.some((x) => x.op === "lecturerUpdate"));
+assert(!Object.keys(ENDPOINTS).some((k) => k.includes("ResendNotification")));
+
+assert.throws(
+  () =>
+    createStudent(
+      {
+        fullName: "Thiếu CCCD",
+        majorId: 1,
+        cohortId: 1,
+        administrativeClassId: 1,
+        reason: "Test",
+      },
+      studentResponses,
+    ),
+  /CCCD/,
+);
+assert.throws(
+  () => updateStudent(created, { administrativeClassId: 2 }),
+  /không được phép/,
+);
+assert.throws(
+  () => updateStudent(created, { academicWarningStatus: "WARNING" }),
+  /không được phép/,
+);
+assert.throws(() => updateStudent(created, { targetGpa: 4.01 }), /GPA/);
+assert.throws(() => updateStudent(created, { targetGpa: 3.125 }), /GPA/);
+assert.equal(
+  updateStudent({ ...created, targetGpa: 3 }, { targetGpa: null }).targetGpa,
+  3,
+  "admin PUT null preserves",
+);
+assert.equal(
+  updateStudent({ ...created, targetGpa: 3 }, { targetGpa: null }, true)
+    .targetGpa,
+  null,
+  "self PATCH null clears",
+);
+assert.equal(
+  updateStudent(created, { targetGpa: 0 }, true).targetGpa,
+  0,
+  "zero is distinct from unset",
+);
+const sharedEmailUsers = await prepareAccounts(
+  [],
+  [
+    {
+      username: "TEST-SHARED-A",
+      fullName: "A",
+      role: "STUDENT",
+      email: "shared@example.com",
+    },
+    {
+      username: "TEST-SHARED-B",
+      fullName: "B",
+      role: "STUDENT",
+      email: "shared@example.com",
+    },
+  ],
+);
+assert.equal(
+  sharedEmailUsers.length,
+  2,
+  "student email is not an identity key",
+);
+await assert.rejects(
+  prepareAccounts(
+    [],
+    [
+      {
+        username: "TEST-LECT-A",
+        fullName: "A",
+        role: "LECTURER",
+        email: "lect@example.com",
+      },
+      {
+        username: "TEST-LECT-B",
+        fullName: "B",
+        role: "LECTURER",
+        email: "lect@example.com",
+      },
+    ],
+  ),
+  /Email|email/,
+);
+
+assert.deepEqual(validateNewPassword("Abcdéf1!"), []);
+assert(
+  validateNewPassword("Á".repeat(34) + "abc1!").some((x) =>
+    x.includes("72 byte"),
+  ),
+);
+await storePassword("history-test", "Temporary1!");
+await storePassword("history-test", "FirstOfficial1!", false);
+assert.equal(
+  await verifyPreviousPassword("history-test", "Temporary1!"),
+  false,
+);
+await storePassword("history-test", "SecondOfficial2!", true);
+assert.equal(
+  await verifyPreviousPassword("history-test", "FirstOfficial1!"),
+  true,
+);
+await storePassword("history-test", "ThirdOfficial3!", true);
+assert.equal(
+  await verifyPreviousPassword("history-test", "FirstOfficial1!"),
+  false,
+);
+assert.equal(
+  await verifyPreviousPassword("history-test", "SecondOfficial2!"),
+  true,
+);
+assert.equal(
+  await verifyPreviousPassword("other-account", "SecondOfficial2!"),
+  false,
+);
+const historyStorage = localStorage.getItem("kma-password-verifiers-v1")!;
+for (const secret of [
+  "Temporary1!",
+  "FirstOfficial1!",
+  "SecondOfficial2!",
+  "ThirdOfficial3!",
+])
+  assert(!historyStorage.includes(secret));
+
+const cap = admissionCapacity({});
+assert.deepEqual(cap, { minimum: 40, maximum: 50, reserve: 15 });
+assert.throws(
+  () => admissionCapacity({ minCapacity: 0 }),
+  (e) => e instanceof ApiError && e.code === 4131,
+);
+assert.throws(
+  () => admissionCapacity({ maxCapacity: 90, reserveCapacity: 10 }),
+  (e) => e instanceof ApiError && e.code === 4131,
+);
+assert.deepEqual(admissionScenarios(0, cap, 10), []);
+const planOptions = admissionScenarios(85, cap, 1);
+assert.equal(planOptions.filter((x) => x.recommended).length, 1);
+assert.equal(planOptions.find((x) => x.recommended)!.level, "NORMAL");
+assert.deepEqual(planOptions.find((x) => x.recommended)!.targetSizes, [43, 42]);
+assert.equal(planOptions.find((x) => x.recommended)!.insufficientRooms, true);
+assert.throws(
+  () => checkExceptions([60], cap, {}),
+  (e) => e instanceof ApiError && e.code === 4133,
+);
+assert.doesNotThrow(() => checkExceptions([60], cap, { acceptReserve: true }));
+assert.throws(
+  () => checkExceptions([30], cap, { acceptBelowMinimum: true }),
+  (e) => e instanceof ApiError && e.code === 4133,
+);
+assert.doesNotThrow(() =>
+  checkExceptions([30], cap, {
+    acceptBelowMinimum: true,
+    reason: "Quy mô đầu vào nhỏ",
+  }),
+);
+assert.throws(
+  () => checkExceptions([66], cap, { acceptReserve: true }),
+  (e) => e instanceof ApiError && e.code === 4135,
+);
+assert.equal(admissionSuffix(26), "Z");
+assert.equal(admissionSuffix(27), "AA");
+assert.equal(admissionSuffix(99), "CU");
+const admissionApplicants: AdmissionApplicantResponse[] = Array.from(
+  { length: 7 },
+  (_, i) => ({
+    id: i + 1,
+    rowNumber: i + 6,
+    applicationCode: `APP-${i}`,
+    citizenId: String(i + 1).padStart(12, "0"),
+    fullName: `Học sinh ${i}`,
+    dateOfBirth: null,
+    gender: null,
+    email: null,
+    phone: null,
+    entranceScore: 30 - i,
+    state: "VALID",
+    error: null,
+    assignedClassId: null,
+    studentId: null,
+    studentCode: null,
+    reusingAccount: false,
+    warnings: [],
+  }),
+);
+const admissionPlan: AdmissionPlanResponse = {
+  id: 1,
+  revision: 1,
+  majorId: 1,
+  cohortId: 1,
+  totalStudents: 7,
+  capacity: { minimum: 2, maximum: 3, reserve: 1 },
+  state: "CLASSES_READY",
+  selectedClassCount: 3,
+  scenarios: [],
+  classes: [1, 2, 3].map((id) => ({
+    id,
+    className: `CT8${admissionSuffix(id)}`,
+    targetSize: 0,
+    assignedSize: 0,
+    currentSize: 0,
+    minimum: 2,
+    maximum: 3,
+    reserve: 1,
+    reserveUsed: 0,
+    averageScore: null,
+    applicantIds: [],
+  })),
+  applicants: admissionApplicants,
+  averageScoreDifference: 0,
+  warnings: [],
+};
+allocateAdmission(admissionPlan);
+summarizeAdmission(admissionPlan, 3);
+assert.equal(admissionPlan.state, "PREVIEWED");
+assert.deepEqual(
+  admissionPlan.classes.map((c) => c.assignedSize),
+  [3, 2, 2],
+);
+assert.equal(
+  new Set(admissionPlan.classes.flatMap((c) => c.applicantIds)).size,
+  7,
+);
+const completed = admissionPlan.applicants[0];
+completed.state = "ENROLLED";
+completed.studentCode = "CNTT080101";
+completed.studentId = 100;
+const fixedClass = completed.assignedClassId;
+allocateAdmission(admissionPlan);
+assert.equal(
+  completed.assignedClassId,
+  fixedClass,
+  "preview cannot move enrolled applicants",
+);
+assert.equal(completed.studentCode, "CNTT080101");
+admissionPlan.applicants.push({
+  ...admissionApplicants[0],
+  id: 8,
+  applicationCode: "INVALID",
+  state: "INVALID",
+  assignedClassId: null,
+});
+summarizeAdmission(admissionPlan, 3);
+assert.equal(
+  admissionPlan.totalStudents,
+  7,
+  "invalid applicant excluded from capacity",
+);
+console.log(
+  "PASS: Nov10 People whitelist/null semantics, shared student email, lecturer uniqueness, password history/UTF-8, admission capacities/scenarios/exception consent/allocation/enrolled preservation",
+);
+
+import { templateBlob } from "../src/services/mock/admissionSpreadsheet";
+import { unzipSync, strFromU8 } from "fflate";
+const admissionTemplate = templateBlob();
+assert.equal(
+  admissionTemplate.type,
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+);
+const templateArchive = unzipSync(
+  new Uint8Array(await admissionTemplate.arrayBuffer()),
+);
+const sheetXml = strFromU8(templateArchive["xl/worksheets/sheet1.xml"]);
+assert.match(sheetXml, /<row r="5">/);
+assert.match(sheetXml, /<c r="A3"[^>]*><is><t>Mã ngành<\/t>/);
+assert.match(sheetXml, /<c r="B3"[^>]*><is><t>CNTT<\/t>/);
+for (const title of [
+  "Mã hồ sơ",
+  "CCCD",
+  "Họ tên",
+  "Điểm đầu vào",
+  "Ngày sinh",
+  "Giới tính",
+  "Email",
+  "Số điện thoại",
+])
+  assert(sheetXml.includes(title));
+assert(
+  !sheetXml.includes("Mã khóa"),
+  "scope cohort is selected in application, not in new template",
+);
+assert.equal(
+  (strFromU8(templateArchive["xl/workbook.xml"]).match(/<sheet /g) ?? [])
+    .length,
+  1,
+);
+console.log(
+  "PASS: demo XLSX template has one sheet, major metadata, row-5 header and required columns",
+);
+
+// Confirmation must use the edited assignment, not the initial balanced scenario.
+import { admissionExceptionErrors } from "../src/pages/live/admissionValidation";
+import { downloadApiFile } from "../src/services/api/httpClient";
+const balancedScenario = {
+  reserveUsed: 0,
+  belowMinimum: false,
+} as import("../docs/fe-api-contract").AdmissionScenario;
+const adjustedClasses = [
+  { assignedSize: 51, minimum: 40, maximum: 50, reserve: 15 },
+  { assignedSize: 39, minimum: 40, maximum: 50, reserve: 15 },
+] as import("../docs/fe-api-contract").AdmissionClassPreview[];
+const editedErrors = admissionExceptionErrors(
+  balancedScenario,
+  adjustedClasses,
+  true,
+  false,
+  false,
+  "",
+);
+assert(
+  editedErrors.acceptReserve &&
+    editedErrors.acceptBelowMinimum &&
+    editedErrors.reason,
+);
+assert.deepEqual(
+  admissionExceptionErrors(
+    balancedScenario,
+    adjustedClasses,
+    true,
+    true,
+    true,
+    "Điều chỉnh theo hồ sơ thực tế",
+  ),
+  {},
+);
+assert.deepEqual(
+  admissionExceptionErrors(
+    balancedScenario,
+    adjustedClasses,
+    false,
+    false,
+    false,
+    "",
+  ),
+  {},
+);
+assert.deepEqual(
+  admissionExceptionErrors(
+    { ...balancedScenario, belowMinimum: true },
+    adjustedClasses.map((c) => ({ ...c, assignedSize: 45 })),
+    true,
+    false,
+    false,
+    "",
+  ),
+  {},
+);
+const originalDownloadFetch = globalThis.fetch;
+globalThis.fetch = async () =>
+  Response.json(
+    { success: false, code: 4006, message: "Cần đổi mật khẩu" },
+    { status: 403 },
+  );
+await assert.rejects(
+  downloadApiFile("/template", "token", "template.xlsx"),
+  (e: unknown) => e instanceof ApiError && e.status === 403 && e.code === 4006,
+);
+globalThis.fetch = originalDownloadFetch;
+console.log(
+  "PASS: admission exception checks use actual assignments; template download preserves first-login error",
+);

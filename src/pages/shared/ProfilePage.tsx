@@ -16,7 +16,7 @@ import { useUI } from "../../context/UIContext";
 export default function ProfilePage() {
   const { target, setTarget, studentData, updateStudents } = useDemoData();
 
-  const { session, users, setUsers } = useAuth();
+  const { session, setUsers } = useAuth();
   const currentStudent = studentData.find(
     (s) => s.dto.studentCode === session?.user.username,
   )?.dto;
@@ -30,21 +30,11 @@ export default function ProfilePage() {
     <ProfileForm
       currentStudent={currentStudent}
       target={target}
-      duplicate={(email) =>
-        [
-          ...studentData.map((s) => ({ username: s.id, email: s.dto.email })),
-          ...users,
-        ].some(
-          (u) =>
-            u.username !== session?.user.username &&
-            (u.email ?? "").trim().toLowerCase() === email,
-        )
-      }
       saveContact={(email, phone) => {
         updateStudents(
           studentData.map((s) =>
             s.dto.id === currentStudent.id
-              ? studentView(updateStudent(s.dto, { email, phone }))
+              ? studentView(updateStudent(s.dto, { email, phone }, true))
               : s,
           ),
         );
@@ -56,7 +46,13 @@ export default function ProfilePage() {
         updateStudents(
           studentData.map((s) =>
             s.dto.id === currentStudent.id
-              ? studentView(updateStudent(s.dto, { targetGpa: Number(value) }))
+              ? studentView(
+                  updateStudent(
+                    s.dto,
+                    { targetGpa: value.trim() === "" ? null : Number(value) },
+                    true,
+                  ),
+                )
               : s,
           ),
         );
@@ -86,7 +82,7 @@ export function ProfileForm({
   const { notify } = useUI();
   const [pending, setPending] = useState(false);
   const contactForm = useFormErrors((f) => ({
-    email: live
+    email: !String(f.get("email") ?? "").trim()
       ? []
       : [
           validateEmail(String(f.get("email") ?? "")),
@@ -98,16 +94,14 @@ export function ProfileForm({
             ? "Email đã được sử dụng."
             : "",
         ].filter(Boolean),
-    phone:
-      live && !f.get("phone")
-        ? []
-        : [validatePhone(String(f.get("phone") ?? ""))].filter(Boolean),
+    phone: !String(f.get("phone") ?? "").trim()
+      ? []
+      : [validatePhone(String(f.get("phone") ?? ""))].filter(Boolean),
   }));
   const targetForm = useFormErrors((f) => ({
-    targetGpa:
-      live && !f.get("targetGpa")
-        ? []
-        : [validateTarget(String(f.get("targetGpa") ?? ""))].filter(Boolean),
+    targetGpa: !String(f.get("targetGpa") ?? "").trim()
+      ? []
+      : [validateTarget(String(f.get("targetGpa") ?? ""))].filter(Boolean),
   }));
   function fieldError(form: typeof contactForm, name: string) {
     return form.errors[name]?.length ? (
@@ -168,9 +162,8 @@ export function ProfileForm({
                   {...contactForm.props("email")}
                   name="email"
                   type="email"
-                  disabled={live}
+                  disabled={pending}
                   defaultValue={currentStudent.email ?? ""}
-                  required
                 />
                 {fieldError(contactForm, "email")}
               </label>
@@ -182,7 +175,6 @@ export function ProfileForm({
                   defaultValue={currentStudent.phone ?? ""}
                   type="tel"
                   autoComplete="tel"
-                  required
                 />
                 {fieldError(contactForm, "phone")}
               </label>
@@ -240,7 +232,6 @@ export function ProfileForm({
                 max="4"
                 step="0.01"
                 defaultValue={target}
-                required
               />
               {fieldError(targetForm, "targetGpa")}
             </label>

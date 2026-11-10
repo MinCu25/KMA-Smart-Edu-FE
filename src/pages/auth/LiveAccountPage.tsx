@@ -54,7 +54,12 @@ function StudentProfile() {
       currentStudent={profile}
       target={String(profile.targetGpa ?? "")}
       live
-      saveContact={(_, phone) => save({ phone: phone || null })}
+      saveContact={(email, phone) => {
+        const patch: UpdateMyStudentProfileRequest = {};
+        if (email !== (profile.email ?? "")) patch.email = email || null;
+        if (phone !== (profile.phone ?? "")) patch.phone = phone || null;
+        return Object.keys(patch).length ? save(patch) : Promise.resolve();
+      }}
       saveTarget={(value) =>
         save({ targetGpa: value === "" ? null : Number(value) })
       }

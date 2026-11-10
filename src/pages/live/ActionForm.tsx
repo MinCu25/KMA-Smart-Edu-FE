@@ -3,7 +3,10 @@ import {
   type Field,
 } from "../../components/academic-admin/AcademicUI";
 import { PrerequisiteChoices } from "../academic-admin/SubjectsPage";
-import type { SubjectResponse } from "../../services/api/backendContract";
+import type {
+  SubjectResponse,
+  AdministrativeClassResponse,
+} from "../../services/api/backendContract";
 import { useEffect, useState } from "react";
 import { useUI } from "../../context/UIContext";
 import { ApiError } from "../../services/api/httpClient";
@@ -43,7 +46,13 @@ export const fieldType = (k: string) =>
   toggle.includes(k)
     ? "checkbox"
     : (k.endsWith("Id") && k !== "citizenId") ||
-        ["targetGpa", "entranceScore", "maxCapacity", "credits"].includes(k)
+        [
+          "targetGpa",
+          "entranceScore",
+          "maxCapacity",
+          "credits",
+          "recruitmentYear",
+        ].includes(k)
       ? "number"
       : [
             "dateOfBirth",
@@ -77,13 +86,54 @@ export function ActionForm({
   const request = useLiveRequest(),
     { notify } = useUI();
   const isPrereq = action.op === "subjectSetPrerequisites";
+  const isTeaching = action.fields.some(
+    (f) => f.replace("!", "") === "teachingSubjectIds",
+  );
+  const [teachingIds, setTeachingIds] = useState<number[]>(
+    ((row.teachingSubjects as SubjectResponse[]) ?? []).map((s) => s.id),
+  );
+  const [teachingChanged, setTeachingChanged] = useState(false);
+  const [scope, setScope] = useState("");
+  const [classes, setClasses] = useState<AdministrativeClassResponse[]>([]);
+  const [classError, setClassError] = useState("");
+  const [classLoading, setClassLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (action.op !== "studentCreate" || !scope) {
+      setClassLoading(false);
+      return;
+    }
+    let active = true;
+    setClasses([]);
+    setClassLoading(true);
+    setClassError("");
+    request<AdministrativeClassResponse[]>(
+      "administrativeClassesSearch",
+      undefined,
+      undefined,
+      new URLSearchParams(scope),
+    )
+      .then((result) => {
+        if (active) setClasses(result);
+      })
+      .catch((error) => {
+        if (active) setClassError(message(error));
+      })
+      .finally(() => {
+        if (active) setClassLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [scope, action.op, request]);
+  const [teachingError, setTeachingError] = useState("");
   const [selected, setSelected] = useState<number[]>(
       ((row.prerequisites as SubjectResponse[]) ?? []).map((s) => s.id),
     ),
     [options, setOptions] = useState<SubjectResponse[]>(),
     [loadError, setLoadError] = useState("");
   useEffect(() => {
-    if (!isPrereq) return;
+    if (!isPrereq && !isTeaching) return;
     let active = true;
     async function load() {
       const rows = await readAllPages<SubjectResponse>(
@@ -100,9 +150,14 @@ export function ActionForm({
     return () => {
       active = false;
     };
-  }, [request, isPrereq]);
+  }, [request, isPrereq, isTeaching]);
   const fields: Field[] = action.fields
-    .filter((f) => f !== "prerequisiteSubjectIds")
+    .filter(
+      (f) =>
+        !["prerequisiteSubjectIds", "teachingSubjectIds"].includes(
+          f.replace("!", ""),
+        ),
+    )
     .map((f) => {
       const key = f.replace("!", "");
       return {
@@ -113,12 +168,20 @@ export function ActionForm({
         value: fieldType(key) === "checkbox" ? "yes" : initial(key, row),
         step: ["targetGpa", "entranceScore"].includes(key) ? "0.01" : "1",
         options:
-          key === "trainingType"
-            ? ["CHINH_QUY", "LIEN_THONG", "VAN_BANG_2"].map((v) => ({
-                value: v,
-                label: labels[v],
+          key === "administrativeClassId" && action.op === "studentCreate"
+            ? classes.map((c) => ({
+                value: c.id,
+                label:
+                  c.className +
+                  " · " +
+                  (labels[c.trainingType] ?? c.trainingType),
               }))
-            : undefined,
+            : key === "trainingType"
+              ? ["CHINH_QUY", "LIEN_THONG", "VAN_BANG_2"].map((v) => ({
+                  value: v,
+                  label: labels[v],
+                }))
+              : undefined,
       };
     });
   function parse(f: FormData) {
@@ -128,6 +191,19 @@ export function ActionForm({
       const k = field.replace("!", ""),
         raw = String(f.get(k) ?? "").trim(),
         type = fieldType(k);
+      if (k === "teachingSubjectIds") {
+        if (action.op === "lecturerCreate" || teachingChanged) {
+          if (!teachingIds.length)
+            err[k] = "Vui lòng chọn ít nhất một học phần đang hoạt động.";
+          if (
+            teachingIds.some((id) => !(options ?? []).some((s) => s.id === id))
+          )
+            err[k] =
+              "Hãy bỏ các môn đã ngừng sử dụng trước khi thay danh sách môn.";
+          body[k] = teachingIds;
+        }
+        continue;
+      }
       if (field.endsWith("!") && !raw)
         err[k] =
           "Vui lòng " +
@@ -141,22 +217,28 @@ export function ActionForm({
         continue;
       }
       if (
-        ["studentUpdate", "myStudentUpdate"].includes(action.op) &&
+        ["studentUpdate", "lecturerUpdate", "myStudentUpdate"].includes(
+          action.op,
+        ) &&
         raw === initial(k, row)
       )
         continue;
       if (
-        (k === "reason" &&
-          ["studentCreate", "lecturerCreate"].includes(action.op) &&
-          raw.length > 500) ||
+        (["reason", "statusReason"].includes(k) && raw.length > 500) ||
         (["fullName", "email", "citizenId", "phone"].includes(k) &&
           raw.length > 255)
       )
         err[k] = "Nội dung vượt quá độ dài cho phép.";
       if (!raw) {
-        if (action.op === "studentUpdate" && ["email", "fullName"].includes(k))
+        if (
+          ["studentUpdate", "lecturerUpdate"].includes(action.op) &&
+          ["fullName", "citizenId", "dateOfBirth"].includes(k)
+        )
           err[k] = "Vui lòng nhập thông tin hợp lệ.";
-        if (action.op === "studentUpdate" && ["phone", "citizenId"].includes(k))
+        if (
+          ["studentUpdate", "lecturerUpdate"].includes(action.op) &&
+          ["phone", "email"].includes(k)
+        )
           body[k] = "";
         if (action.op === "myStudentUpdate") body[k] = null;
         else if (
@@ -185,7 +267,10 @@ export function ActionForm({
             (!Number.isSafeInteger(n) || n < 1)) ||
           (k === "credits" && n > 5) ||
           (k === "maxCapacity" && n > 80) ||
-          (k === "targetGpa" && action.op === "myStudentUpdate" && n > 4)
+          (k === "targetGpa" &&
+            (n > 4 || Math.abs(n * 100 - Math.round(n * 100)) > 1e-8)) ||
+          (k === "recruitmentYear" &&
+            (!Number.isInteger(n) || n < 1000 || n > 9999))
         )
           err[k] = "Giá trị ngoài phạm vi cho phép.";
         body[k] = n;
@@ -207,11 +292,24 @@ export function ActionForm({
           err[b] = "Ngày này phải sau " + names[a].toLowerCase() + ".";
     }
     if (
-      ["lecturerCreate", "studentUpdate"].includes(action.op) &&
+      [
+        "lecturerCreate",
+        "lecturerUpdate",
+        "studentCreate",
+        "studentUpdate",
+      ].includes(action.op) &&
       body.dateOfBirth &&
       String(body.dateOfBirth) >= new Date().toLocaleDateString("sv-SE")
     )
       err.dateOfBirth = "Ngày sinh phải trong quá khứ.";
+    if (action.op === "studentCreate") {
+      const chosen = classes.find((c) => c.id === body.administrativeClassId);
+      if (classLoading || !chosen)
+        err.administrativeClassId =
+          "Vui lòng chọn lớp thuộc ngành và khóa đã chọn.";
+      else if (chosen.trainingType !== body.trainingType)
+        err.trainingType = "Hệ đào tạo phải khớp với lớp đã chọn.";
+    }
     return { err, body };
   }
   return (
@@ -223,10 +321,20 @@ export function ActionForm({
             String(row.studentCode || row.subjectCode || row.moduleClassCode)
           : ""}
       </h2>
+      {action.op === "studentCreate" && (
+        <p role="status">
+          {classLoading
+            ? "Đang tải lớp theo ngành và khóa…"
+            : classError ||
+              (scope && !classes.length
+                ? "Không có lớp hành chính trong ngành và khóa đã chọn."
+                : "Nhập ID ngành và khóa để tải danh sách lớp.")}
+        </p>
+      )}
       {fields.some((f) =>
         ["majorId", "facultyId", "administrativeClassId"].includes(f.key),
       ) && <p>Nhập ID ngành, khóa, lớp hoặc khoa do phòng đào tạo cung cấp.</p>}
-      {isPrereq && !options ? (
+      {(isPrereq || isTeaching) && !options ? (
         <>
           <p>{loadError || "Đang tải danh mục học phần…"}</p>
           <button className="btn" onClick={cancel}>
@@ -237,6 +345,26 @@ export function ActionForm({
         <EditForm
           fields={fields}
           close={cancel}
+          onValuesChange={
+            action.op === "studentCreate"
+              ? (f) => {
+                  const major = Number(f.get("majorId")),
+                    cohort = Number(f.get("cohortId"));
+                  const next =
+                    Number.isSafeInteger(major) &&
+                    major > 0 &&
+                    Number.isSafeInteger(cohort) &&
+                    cohort > 0
+                      ? new URLSearchParams({
+                          majorId: String(major),
+                          cohortId: String(cohort),
+                        }).toString()
+                      : "";
+                  setScope(next);
+                  if (!next) setClasses([]);
+                }
+              : undefined
+          }
           submit={
             isPrereq
               ? "Lưu môn tiên quyết"
@@ -245,21 +373,40 @@ export function ActionForm({
                 : "Xác nhận"
           }
           validate={(f, errors) => {
+            setTeachingError(parse(f).err.teachingSubjectIds ?? "");
             for (const [key, text] of Object.entries(parse(f).err))
               errors[key] = [text];
             return errors;
           }}
           save={async (f) => {
             const { body } = parse(f);
-            const result = await request<Row | undefined>(
-              action.op,
-              row.id as number,
-              action.fields.length ? body : undefined,
-            );
+            setSaving(true);
+            let result: Row | undefined;
+            try {
+              result = await request<Row | undefined>(
+                action.op,
+                row.id as number,
+                action.fields.length ? body : undefined,
+              );
+            } catch (error) {
+              setTeachingError(
+                Object.entries(errorMap(error))
+                  .filter(([key]) => key.startsWith("teachingSubjectIds"))
+                  .map(([, value]) => value)
+                  .join(" "),
+              );
+              throw error;
+            } finally {
+              setSaving(false);
+            }
             const warnings = [
               ...(Array.isArray(result?.warnings) ? result.warnings : []),
               result?.notificationError,
             ].filter(Boolean);
+            if (result?.notificationStatus === "SKIPPED")
+              warnings.unshift(
+                "Đã tạo hồ sơ; không gửi email vì chưa có địa chỉ nhận.",
+              );
             if (result?.notificationStatus === "FAILED")
               warnings.unshift("Gửi email tài khoản thất bại.");
             notify(
@@ -271,6 +418,61 @@ export function ActionForm({
             done();
           }}
         >
+          {isTeaching && (
+            <fieldset className="teaching-subject-choices" disabled={saving}>
+              <legend>
+                Học phần có thể giảng dạy{" "}
+                {action.op === "lecturerCreate" ? "*" : ""}
+              </legend>
+              <input
+                type="hidden"
+                name="teachingSubjectIds"
+                value={teachingIds.join(",")}
+              />
+              <p>
+                Chọn các học phần đang hoạt động. Khi sửa, giữ nguyên lựa chọn
+                để bảo toàn môn lịch sử.
+              </p>
+              {[
+                ...(options ?? []),
+                ...((row.teachingSubjects as SubjectResponse[]) ?? []).filter(
+                  (s) => !(options ?? []).some((o) => o.id === s.id),
+                ),
+              ].map((subject) => (
+                <label key={subject.id}>
+                  <input
+                    type="checkbox"
+                    checked={teachingIds.includes(subject.id)}
+                    onChange={(e) => {
+                      setTeachingChanged(true);
+                      setTeachingError("");
+                      setTeachingIds((ids) =>
+                        e.target.checked
+                          ? [...ids, subject.id]
+                          : ids.filter((id) => id !== subject.id),
+                      );
+                    }}
+                  />{" "}
+                  {subject.subjectCode} · {subject.subjectName}
+                  {!(options ?? []).some((o) => o.id === subject.id)
+                    ? " (môn lịch sử, không thể chọn mới)"
+                    : ""}
+                </label>
+              ))}
+              {!options?.length && (
+                <p>Không có học phần đang hoạt động để chọn.</p>
+              )}
+              {teachingError && (
+                <p
+                  className="field-error"
+                  id="teachingSubjectIds-error"
+                  role="alert"
+                >
+                  {teachingError}
+                </p>
+              )}
+            </fieldset>
+          )}
           {isPrereq && (
             <PrerequisiteChoices
               subjects={(options ?? []).filter((s) => s.id !== row.id)}

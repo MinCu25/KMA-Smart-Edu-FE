@@ -51,8 +51,16 @@ export type PersonExtra = {
   reason?: string;
   emailStatus?: string;
 };
+export type DemoLecturer = LecturerResponse & {
+  recruitmentYear?: number | null;
+  facultyId?: number | null;
+  teachingSubjects?: Pick<
+    SubjectResponse,
+    "id" | "subjectCode" | "subjectName" | "credits"
+  >[];
+};
 export type AcademicModel = {
-  teachers: LecturerResponse[];
+  teachers: DemoLecturer[];
   subjects: SubjectResponse[];
   classes: ModuleClassResponse[];
   accounts: UserInfoResponse[];
@@ -87,7 +95,7 @@ function useModel() {
     const migrated = reconcileScheduledRooms(rooms, storedData.classes);
     if (!migrated) return;
     setRooms(migrated.rooms);
-    setStoredData(old => ({...old, classes: migrated.classes}));
+    setStoredData((old) => ({ ...old, classes: migrated.classes }));
   }, [rooms, storedData.classes, setRooms, setStoredData]);
   const [terms, setTerms] = usePersistentState<SemesterResponse[]>(
     "kma-academic-terms-v1",
@@ -184,13 +192,11 @@ function useModel() {
       setStoredData((old) => ({ ...old, teachers: repaired }));
     auth.setUsers((old) => syncLecturerAccounts(old, repaired));
   }, [storedData.teachers, auth.users]);
-  const excludedLecturerCodes = storedData.teachers
-    .filter((t) => !t.email?.trim())
-    .map((t) => t.lecturerCode);
+  const excludedLecturerCodes: string[] = [];
   const normalizedSubjects = normalizeSubjects(storedData.subjects);
   const data: AcademicModel = {
     ...storedData,
-    teachers: storedData.teachers.filter((t) => !!t.email?.trim()),
+    teachers: storedData.teachers,
     subjects: normalizedSubjects,
     classes: syncClasses(normalizedSubjects, storedData.classes),
   };

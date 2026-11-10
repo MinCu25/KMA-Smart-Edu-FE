@@ -50,12 +50,14 @@ export function validateNewPassword(value: string): string[] {
   if (!value.trim()) return ["Vui lòng nhập mật khẩu mới."];
   const errors: string[] = [];
   if (/\s/.test(value)) errors.push("Mật khẩu không được chứa khoảng trắng.");
-  if (value.length < 8) errors.push("Mật khẩu tối thiểu 8 ký tự.");
-  if (!/[A-Z]/.test(value)) errors.push("Có ít nhất 1 ký tự in hoa.");
-  if (!/[a-z]/.test(value)) errors.push("Có ít nhất 1 ký tự in thường.");
+  if ([...value].length < 8) errors.push("Mật khẩu tối thiểu 8 ký tự.");
+  if (!/\p{Lu}/u.test(value)) errors.push("Có ít nhất 1 ký tự in hoa.");
+  if (!/\p{Ll}/u.test(value)) errors.push("Có ít nhất 1 ký tự in thường.");
   if (!/\d/.test(value)) errors.push("Có ít nhất 1 chữ số.");
-  if (!/[!@#$%^&*(),.?":{}|<>]/.test(value))
-    errors.push('Có ít nhất 1 ký tự đặc biệt (!@#$%^&*(),.?":{}|<>).');
+  if (!/[^\p{L}\p{N}\s]/u.test(value))
+    errors.push("Có ít nhất 1 ký tự đặc biệt.");
+  if (new TextEncoder().encode(value).length > 72)
+    errors.push("Mật khẩu không được vượt quá 72 byte UTF-8.");
   return errors;
 }
 export function validatePasswordForm(

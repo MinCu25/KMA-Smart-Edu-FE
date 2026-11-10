@@ -1,4 +1,3 @@
-import { ResendAccountEmail } from "../../components/academic-admin/ResendAccountEmail";
 import { transitionStudent } from "../../services/academic/domain";
 import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
@@ -176,7 +175,11 @@ export default function StudentsPage() {
                                     ["MSSV", s.id],
                                     ["Họ tên", s.name],
                                     ["Ngày sinh", s.dto.dateOfBirth],
-                                    ["CCCD", s.dto.citizenId ?? a.people[s.id]?.citizenId],
+                                    [
+                                      "CCCD",
+                                      s.dto.citizenId ??
+                                        a.people[s.id]?.citizenId,
+                                    ],
                                     ["Email", s.dto.email],
                                     ["Số điện thoại", s.dto.phone],
                                     ["Ngành", s.major],
@@ -198,13 +201,8 @@ export default function StudentsPage() {
                                         (u) => u.username === s.id,
                                       )?.status ?? "Chưa có tài khoản",
                                     ],
-                                    [
-                                      "Email cấp tài khoản",
-                                      a.people[s.id]?.emailStatus,
-                                    ],
                                   ]}
                                 />
-                                <ResendAccountEmail username={s.id} />
                               </>
                             ),
                           })

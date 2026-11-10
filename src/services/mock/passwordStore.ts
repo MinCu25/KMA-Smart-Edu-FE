@@ -1,6 +1,10 @@
 // Browser-only credential simulation. Replace with server endpoints before production.
 const key = "kma-password-verifiers-v1";
-type Verifier = { salt: number[]; hash: string };
+type Verifier = {
+  salt: number[];
+  hash: string;
+  previous?: { salt: number[]; hash: string };
+};
 async function derive(password: string, salt: Uint8Array): Promise<string> {
   if (!globalThis.crypto?.subtle)
     throw Error(
@@ -36,11 +40,34 @@ export async function verifyPassword(username: string, password: string) {
     ? (await derive(password, new Uint8Array(entry.salt))) === entry.hash
     : password === "demo123";
 }
-export async function storePassword(username: string, password: string) {
+export async function verifyPreviousPassword(
+  username: string,
+  password: string,
+) {
+  const previous = read()[username]?.previous;
+  return (
+    !!previous &&
+    (await derive(password, new Uint8Array(previous.salt))) === previous.hash
+  );
+}
+export async function storePassword(
+  username: string,
+  password: string,
+  rememberCurrent = false,
+) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const hash = await derive(password, salt);
+  const entries = read();
+  const current = entries[username];
+  const previous =
+    rememberCurrent && current
+      ? { salt: current.salt, hash: current.hash }
+      : current?.previous;
   localStorage.setItem(
     key,
-    JSON.stringify({ ...read(), [username]: { salt: Array.from(salt), hash } }),
+    JSON.stringify({
+      ...entries,
+      [username]: { salt: Array.from(salt), hash, previous },
+    }),
   );
 }

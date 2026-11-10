@@ -14,7 +14,8 @@ export function setStudentTarget(
     value.trim() === "" ||
     !Number.isFinite(+value) ||
     +value < 0 ||
-    +value > 4
+    +value > 4 ||
+    Math.abs(+value * 100 - Math.round(+value * 100)) > 1e-8
   )
     return students;
   return students.map((s) =>

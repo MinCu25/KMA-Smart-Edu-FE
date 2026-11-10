@@ -4,7 +4,7 @@ import { ENDPOINTS } from "../../services/api/backendContract";
 import type { Op } from "./catalog";
 import { useCallback } from "react";
 export function useLiveRequest() {
-  const { session, clearSession } = useAuth();
+  const { session, clearSession, requirePasswordChange } = useAuth();
   return useCallback(
     async function request<T>(
       op: Op,
@@ -15,12 +15,13 @@ export function useLiveRequest() {
       const { url, method } = ENDPOINTS[op];
       if (typeof url === "function" && id == null)
         throw Error("Thiếu mã bản ghi.");
-      const path =
-        typeof url === "string"
-          ? url
-          : typeof id === "string"
-            ? (url as (s: string) => string)(id)
-            : (url as (n: number) => string)(id!);
+      const numericId = Number(id);
+      if (
+        typeof url === "function" &&
+        (!Number.isSafeInteger(numericId) || numericId <= 0)
+      )
+        throw Error("ID bản ghi phải là số nguyên dương an toàn.");
+      const path = typeof url === "string" ? url : url(numericId);
       if (!session) throw Error("Phiên đăng nhập đã hết hạn.");
       try {
         const data = await apiRequest<T>(
@@ -46,10 +47,12 @@ export function useLiveRequest() {
       } catch (e) {
         if (e instanceof ApiError && e.status === 401 && e.code !== 4003)
           clearSession();
+        if (e instanceof ApiError && e.status === 403 && e.code === 4006)
+          requirePasswordChange();
         throw e;
       }
     },
-    [session, clearSession],
+    [session, clearSession, requirePasswordChange],
   );
 }
 

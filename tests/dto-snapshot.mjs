@@ -42,7 +42,7 @@ for (const file of files) {
 }
 assert.ok(checked >= 55);
 console.log(
-  `PASS: ${checked} DTO field sets match backend snapshot ${snapshot.sha}. Boolean JSON names assume default Jackson/Lombok; verify response fixtures at integration.`,
+  `PASS (LEGACY demo baseline, not current REST): ${checked} DTO field sets match historical backend snapshot ${snapshot.sha}. Boolean JSON names assume default Jackson/Lombok; verify response fixtures at integration.`,
 );
 
 for (const file of snapshot.files.filter((f) => f.path.includes("/enums/"))) {
@@ -60,4 +60,6 @@ for (const file of snapshot.files.filter((f) => f.path.includes("/enums/"))) {
     .sort();
   assert.deepEqual(tsValues, javaValues, `${name}: enum mismatch`);
 }
-console.log("PASS: all 13 backend enums match frontend");
+console.log(
+  "PASS (LEGACY demo baseline): all 13 historical backend enums match frontend",
+);

@@ -1,3 +1,5 @@
+> Tài liệu lịch sử trước 10/11/2026. Hợp đồng hiện hành là [API_SPECIFICATION.md](API_SPECIFICATION.md) và [fe-api-contract.ts](fe-api-contract.ts); xem [tình trạng FE](FRONTEND-INTEGRATION-STATUS.md). Các nhận định/API cũ bên dưới không đại diện bản hiện tại.
+
 # Lớp học phần và lịch học — 2026-11-03
 
 Phạm vi: Admin học vụ, UC-19, UC-20, UC-22, UC-23, UC-25 trong BF_UCS_and_IMAGESnew.pdf, trang 88–97. Bản gốc FE: main 43759c0efc920b56c166684bcd4fc6c6c8a15b5e. Backend scheduling: develop 8253c0e2965b53bab1a3ab47e068a472a2e99255.
