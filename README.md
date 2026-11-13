@@ -1,6 +1,8 @@
+> Cập nhật 13/11/2026: đã nối API chat, lịch sử và upload TXT cho AI. Xem [docs/AI-INTEGRATION.md](docs/AI-INTEGRATION.md) về phạm vi, cấu hình và giới hạn.
+
 # KMA Smart Edu — React + TypeScript
 
-Frontend cho Sinh viên, Giảng viên, Admin học vụ và Admin hệ thống. Hợp đồng REST hiện hành lấy từ bộ tài liệu BE ngày **10/11/2026** trong `docs/`, gồm **53 cặp HTTP method/URL**. Tài liệu cũ ngày 02–05/11 chỉ dùng tham khảo lịch sử.
+Frontend cho Sinh viên, Giảng viên, Admin học vụ và Admin hệ thống. Hợp đồng REST hiện hành lấy từ bộ tài liệu BE ngày **10/11/2026** trong `docs/`, gồm **53 cặp HTTP method/URL**, bổ sung **4 API AI** theo nhánh `feature/ai-assistant-01` (chi tiết trong tài liệu AI phía trên). Tài liệu cũ ngày 02–05/11 chỉ dùng tham khảo lịch sử.
 
 ## Chạy dự án
 

@@ -1,3 +1,5 @@
+import { AiChat } from "../live/AiChat";
+import { AiDocuments } from "../live/AiDocuments";
 import { LiveRoomsPage } from "../academic-admin/RoomsPage";
 import { useEffect, useState } from "react";
 import { catalog } from "../live/catalog";
@@ -70,6 +72,9 @@ export function LiveAccountPage({
   page,
   onNavigate,
 }: { page: Page } & PageProps) {
+  if (["chat", "chat-history", "chat-graduation"].includes(page))
+    return <AiChat page={page} onNavigate={onNavigate} />;
+  if (page === "knowledge") return <AiDocuments />;
   if (page === "profile") return <StudentProfile />;
   if (page === "rooms") return <LiveRoomsPage />;
   if (page === "accounts") return <LiveAccounts />;

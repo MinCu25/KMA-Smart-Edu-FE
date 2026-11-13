@@ -1554,3 +1554,5 @@ globalThis.fetch = originalDownloadFetch;
 console.log(
   "PASS: admission exception checks use actual assignments; template download preserves first-login error",
 );
+
+await import("./ai-contracts");
