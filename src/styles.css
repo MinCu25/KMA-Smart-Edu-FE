@@ -308,3 +308,14 @@
   padding: 16px 0;
   color: #52647b;
 }
+
+/* Confirmation controls keep their label and validation together. */
+.academic-fields .confirmation-field { grid-column: 1 / -1; }
+.confirmation-choice { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid #dce3ee; border-radius: 8px; background: #f8fafc; color: #26384e; }
+.confirmation-choice input[type="checkbox"] { flex: 0 0 18px; width: 18px; height: 18px; min-height: 0; margin: 3px 0 0; padding: 0; accent-color: #2455df; }
+.confirmation-choice span { line-height: 1.5; }
+.account-detail-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 20px 0; }
+.account-detail-fields > div { min-width: 0; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
+.account-detail-fields dt { color: #64748b; font-size: 13px; margin-bottom: 6px; }
+.account-detail-fields dd { margin: 0; color: #172b4d; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .account-detail-fields { grid-template-columns: 1fr; } }

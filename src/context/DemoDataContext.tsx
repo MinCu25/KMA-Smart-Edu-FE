@@ -1,3 +1,4 @@
+import { repairDemoStudentAccounts } from "../services/mock/studentAccountRepair";
 import {
   targetForStudent,
   setStudentTarget,
@@ -9,7 +10,7 @@ import { useAuth } from "./AuthContext";
 import { useManagement } from "./ManagementContext";
 import { courseView } from "../services/adapters";
 import { readStorage } from "../services/mock/storage";
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { usePersistentState } from "../hooks/usePersistentState";
 import { allCourses, initialCourses } from "../data/mock/courses";
 import { students } from "../data/mock/students";
@@ -45,6 +46,9 @@ function useDemoDataState() {
     "kma-dto-v2-students",
     students,
   );
+  useEffect(() => {
+    auth.setUsers(old => repairDemoStudentAccounts(old, studentData));
+  }, [studentData, auth.setUsers]);
   // The profile owns GPA: switching users cannot reuse another student's target.
   const target = targetForStudent(studentData, username);
   function setTarget(value: string) {

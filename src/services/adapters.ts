@@ -15,7 +15,7 @@ export function studentView(dto: StudentResponse): Student {
         ? "Đang hoạt động"
         : dto.activityStatus === "DELETED"
           ? "Đã xóa"
-          : "Ngừng hoạt động",
+          : "Vô hiệu hóa",
   };
 }
 export function courseView(dto: ModuleClassResponse): Course {

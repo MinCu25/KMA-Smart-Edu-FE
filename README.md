@@ -66,3 +66,7 @@ npm run build
 Tests kiểm tra logic FE và phản hồi mô phỏng. Snapshot DTO Java cũ được ghi rõ là baseline lịch sử của demo; đối chiếu API hiện hành dùng bộ tài liệu 10/11. Build/test đạt không chứng minh SMTP, migration, phân quyền hay transaction của server đã hoạt động thực tế.
 
 Không đưa `.env.local`, `.env`, `node_modules/` hoặc `dist/` lên GitHub. Giữ `.env.example` không chứa bí mật. Biến `VITE_*` được nhúng vào mã trình duyệt, không đặt mật khẩu DB/SMTP/JWT secret tại đây.
+
+### Sửa dữ liệu tài khoản demo (13/11/2026)
+
+Bản khởi tạo gồm 6 sinh viên, 3 giảng viên và 2 admin (11 tài khoản). Bản cập nhật bổ sung tài khoản còn thiếu cho hồ sơ sinh viên có sẵn trong bộ dữ liệu demo, không ghi đè tài khoản, mật khẩu hay trạng thái đã tồn tại. Sinh viên đã vô hiệu hóa có tài khoản ngừng hoạt động. Tài khoản sinh viên được bổ sung dùng mật khẩu demo ban đầu `demo123` và phải đổi khi đăng nhập lần đầu. Không cần xóa localStorage. Chế độ API không chạy bước bổ sung này.

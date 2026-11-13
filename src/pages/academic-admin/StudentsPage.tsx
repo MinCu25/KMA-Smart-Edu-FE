@@ -115,8 +115,8 @@ export default function StudentsPage() {
             >
               <option value="">Tất cả trạng thái</option>
               <option>Đang hoạt động</option>
-              <option>Ngừng hoạt động</option>
-              <option>Đã xóa</option>
+              <option>Vô hiệu hóa</option>
+              <option>Đã khóa</option>
             </select>
           </label>
           <button className="btn primary">Tìm kiếm</button>
@@ -149,16 +149,8 @@ export default function StudentsPage() {
                   <td>{s.major}</td>
                   <td>{s.cohort}</td>
                   <td>
-                    <Badge
-                      tone={
-                        s.status === "Đang hoạt động"
-                          ? "green"
-                          : s.status === "Bảo lưu"
-                            ? "yellow"
-                            : "red"
-                      }
-                    >
-                      {s.status}
+                    <Badge tone={auth.users.find(u => u.username === s.id && u.role === "STUDENT")?.status === "ACTIVE" ? "green" : "red"}>
+                      {({ ACTIVE: "Đang hoạt động", LOCKED: "Đã khóa", DISABLED: "Vô hiệu hóa" } as Record<string, string>)[auth.users.find(u => u.username === s.id && u.role === "STUDENT")?.status ?? ""] ?? "Chưa có tài khoản"}
                     </Badge>
                   </td>
                   <td>
@@ -197,9 +189,9 @@ export default function StudentsPage() {
                                     ["Ngày tạo hồ sơ", s.dto.createdAt],
                                     [
                                       "Tài khoản",
-                                      auth.users.find(
-                                        (u) => u.username === s.id,
-                                      )?.status ?? "Chưa có tài khoản",
+                                      ({ ACTIVE: "Đang hoạt động", LOCKED: "Đã khóa", DISABLED: "Vô hiệu hóa" } as Record<string, string>)[auth.users.find(
+                                        (u) => u.username === s.id && u.role === "STUDENT",
+                                      )?.status ?? ""] ?? "Chưa có tài khoản",
                                     ],
                                   ]}
                                 />
@@ -234,6 +226,7 @@ export default function StudentsPage() {
                                   },
                                   {
                                     key: "confirmed",
+                                    type: "checkbox",
                                     label:
                                       "Xác nhận đồng bộ trạng thái tài khoản",
                                     required: true,
@@ -241,8 +234,8 @@ export default function StudentsPage() {
                                       {
                                         value: "yes",
                                         label: activate
-                                          ? "Kích hoạt hồ sơ và mở khóa tài khoản"
-                                          : "Vô hiệu hóa hồ sơ và khóa đăng nhập",
+                                          ? "Kích hoạt hồ sơ và mở lại quyền đăng nhập"
+                                          : "Vô hiệu hóa hồ sơ và tài khoản liên kết",
                                       },
                                     ],
                                   },

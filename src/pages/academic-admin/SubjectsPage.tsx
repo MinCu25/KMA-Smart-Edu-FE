@@ -234,6 +234,7 @@ export default function SubjectsPage() {
               ? [
                   {
                     key: "confirmed",
+                                    type: "checkbox",
                     label: "Xác nhận cập nhật học phần có lớp đang mở",
                     required: true,
                     options: [{ value: "yes", label: "Tôi xác nhận cập nhật" }],
@@ -356,6 +357,7 @@ export default function SubjectsPage() {
             { key: "reason", label: "Lý do", required: true },
             {
               key: "confirmed",
+                                    type: "checkbox",
               label: "Xác nhận thao tác",
               required: true,
               options: [

@@ -67,6 +67,7 @@ export default function TermsPage() {
         ? [
             {
               key: "confirmed",
+                                    type: "checkbox",
               label: "Kỳ đã có lớp học phần",
               required: false,
               options: [

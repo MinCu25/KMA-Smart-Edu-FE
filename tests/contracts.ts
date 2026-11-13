@@ -442,6 +442,7 @@ import { AppRoutes } from "../src/routes/AppRoutes";
 import { academicAdminNavigation } from "../src/config/navigation";
 import {
   baseValidation,
+  EditForm,
   personFields,
 } from "../src/components/academic-admin/AcademicUI";
 assert.ok(!academicAdminNavigation.some((x) => x.id === "academic-dashboard"));
@@ -568,7 +569,19 @@ const changed = transitionStudent(
   "Tạm khóa",
 );
 assert.equal(changed.student.activityStatus, "DEACTIVATED");
-assert.equal(changed.users[0].status, "LOCKED");
+assert.equal(changed.users[0].status, "DISABLED");
+assert.equal(transitionStudent(changed.student, changed.users, true, "Trở lại học").users[0].status, "ACTIVE");
+const lockedSuspension = transitionStudent(studentResponses[0], [{...linked, status: "LOCKED"}], false, "Bảo lưu");
+assert.equal(lockedSuspension.users[0].status, "DISABLED");
+const legacySuspension = { ...lockedSuspension.users[0], demoStatusBeforeDeactivation: "LOCKED" };
+const restoredStudent = transitionStudent(lockedSuspension.student, [legacySuspension], true, "Trở lại học");
+assert.equal(restoredStudent.users[0].status, "ACTIVE");
+assert.equal("demoStatusBeforeDeactivation" in restoredStudent.users[0], false);
+assert.equal(restoredStudent.student.activityStatus, "STUDYING");
+assert.equal(restoredStudent.student.studentCode, studentResponses[0].studentCode);
+assert.equal(studentView(changed.student).status, "Vô hiệu hóa");
+
+assert.equal(transitionStudent(lockedSuspension.student, lockedSuspension.users, true, "Trở lại học").users[0].status, "ACTIVE");
 assert.throws(
   () =>
     updateSubjectModel(
@@ -1556,3 +1569,56 @@ console.log(
 );
 
 await import("./ai-contracts");
+
+const { repairDemoStudentAccounts } = await import('../src/services/mock/studentAccountRepair');
+const { students: repairStudents } = await import('../src/data/mock/students');
+const { userResponses: repairUsers } = await import('../src/data/mock/dtoFixtures');
+const { syncLecturerAccounts: repairLecturers } = await import('../src/services/academic/lecturers');
+const { lecturerResponses: repairTeachers } = await import('../src/data/mock/dtoFixtures');
+const beforeRepair = repairUsers.map(u => ({...u, firstLogin: false}));
+const afterRepair = repairDemoStudentAccounts(beforeRepair, repairStudents);
+assert.equal(afterRepair.filter(u => u.role === 'STUDENT').length, 6);
+assert.equal(repairLecturers(afterRepair, repairTeachers).length, 11);
+assert.equal(afterRepair.find(u => u.username === 'CT080327')?.status, 'DISABLED');
+assert.equal(afterRepair.find(u => u.username === 'CT080214')?.firstLogin, true);
+assert.equal(afterRepair[3], beforeRepair[3]);
+assert.equal(repairDemoStudentAccounts(afterRepair, repairStudents), afterRepair);
+assert.equal(new Set(afterRepair.map(u => u.id)).size, afterRepair.length);
+assert.equal(repairDemoStudentAccounts(beforeRepair, repairStudents.filter(s => s.dto.studentCode !== 'CT080214')).some(u => u.username === 'CT080214'), false);
+console.log('PASS: demo student seed repair, 11 linked accounts, inactive status, preserved existing identity, idempotence and absent-profile guard');
+
+const {repairSeedScheduleStorage} = await import('../src/services/mock/seedScheduleRepair');
+assert.ok(semesterResponse.registrationEnd! < semesterResponse.startDate!);
+for (const c of moduleClassResponses) for (const slot of c.schedules) assert.ok(slot.startDate! >= semesterResponse.startDate!);
+for (let i=0;i<moduleClassResponses.length;i++) for (let j=i+1;j<moduleClassResponses.length;j++) {
+ const a=moduleClassResponses[i], b=moduleClassResponses[j];
+ for(const x of a.schedules) for(const y of b.schedules) {
+  if(x.roomCode===y.roomCode || a.lecturerName===b.lecturerName) assert.equal(schedulesOverlap(x,y),false, `Seed scheduling conflict: ${a.moduleClassCode}, ${b.moduleClassCode}`);
+ }
+}
+const oldTerm={...semesterResponse,startDate:'2026-11-02'};
+assert.equal(repairSeedScheduleStorage('kma-semester-dto-v3',oldTerm).startDate,'2026-11-16');
+const customTerm={...oldTerm,registrationEnd:'2026-10-31'};
+assert.equal(repairSeedScheduleStorage('kma-semester-dto-v3',customTerm),customTerm);
+assert.equal(repairSeedScheduleStorage('kma-users-v1',beforeRepair),beforeRepair);
+const oldClasses=moduleClassResponses.map(c=>({...c,schedules:c.schedules.map(s=>({...s,startDate:'2026-11-02',...(c.moduleClassCode==='INT1306.2'?{roomCode:'201-A',buildingCode:'A'}:{})}))}));
+const migratedClasses=repairSeedScheduleStorage('kma-dto-management-v3',{classes:oldClasses}).classes;
+assert.equal(migratedClasses[5].schedules[0].roomCode,'201-B');
+assert.equal(migratedClasses[0].schedules[0].startDate,'2026-11-16');
+assert.deepEqual(repairSeedScheduleStorage('kma-dto-management-v3',{classes:migratedClasses}).classes,migratedClasses);
+console.log('PASS: seed term date ordering, all seed teacher/room conflicts, legacy date repair and preservation guards');
+
+localStorage.setItem("uc10-label-repair", JSON.stringify([{ ...studentView(changed.student), status: "Ngừng hoạt động" }]));
+const labelRepair = readStorage<any[]>("uc10-label-repair", []);
+assert.equal(labelRepair[0].status, "Vô hiệu hóa");
+assert.deepEqual(labelRepair[0].dto, changed.student);
+localStorage.setItem("uc10-label-repair", "null");
+
+const confirmationFields = [{ key: "confirmed", label: "Xác nhận", type: "checkbox", required: true, options: [{ value: "yes", label: "Tôi xác nhận" }] }];
+const uncheckedConfirmation = new FormData();
+assert.ok(baseValidation(confirmationFields, uncheckedConfirmation).confirmed.length);
+uncheckedConfirmation.set("confirmed", "yes");
+assert.equal(baseValidation(confirmationFields, uncheckedConfirmation).confirmed.length, 0);
+const confirmationMarkup = renderToStaticMarkup(React.createElement(EditForm, { fields: confirmationFields, close: () => {}, save: () => {} }));
+assert.ok(confirmationMarkup.includes('type="checkbox"'));
+assert.ok(!confirmationMarkup.includes('<select'));

@@ -61,6 +61,16 @@ export function missingPrerequisites(
       .map((p) => `${p.subjectCode} · ${p.subjectName}`) ?? []
   );
 }
+// UC-10 (BF_UCS_and_IMAGESnew.pdf, pp. 78–79): reactivation restores login.
+// Strip obsolete demo-only metadata without adding fields to the backend DTO.
+function transitionDemoStudentAccount(
+  user: UserInfoResponse,
+  activate: boolean,
+): UserInfoResponse {
+  const { demoStatusBeforeDeactivation: _obsolete, ...account } =
+    user as UserInfoResponse & { demoStatusBeforeDeactivation?: string };
+  return { ...account, status: activate ? "ACTIVE" : "DISABLED" };
+}
 export function transitionStudent(
   student: StudentResponse,
   users: UserInfoResponse[],
@@ -86,9 +96,7 @@ export function transitionStudent(
       statusReason: reason.trim(),
     },
     users: users.map((u) =>
-      u.id === account.id
-        ? { ...u, status: activate ? "ACTIVE" : "LOCKED" }
-        : u,
+      u.id === account.id ? transitionDemoStudentAccount(u, activate) : u,
     ),
   };
 }

@@ -21,7 +21,7 @@ export function baseValidation(fields: Field[], f: FormData): FieldErrors {
     const v = str(f, x.key);
     e[x.key] = [];
     if (x.required && !v)
-      e[x.key].push(`Vui lòng nhập ${x.label.toLowerCase()}.`);
+      e[x.key].push(x.type === "checkbox" ? "Vui lòng tích ô xác nhận để tiếp tục." : `Vui lòng nhập ${x.label.toLowerCase()}.`);
     if (!v) continue;
     if (
       x.type === "number" &&
@@ -109,10 +109,16 @@ export function EditForm({
     >
       <div className="academic-fields">
         {fields.map((x) => (
-          <label key={x.key}>
-            {x.label}
-            {x.required ? " *" : ""}
-            {x.options ? (
+          <label key={x.key} className={x.type === "checkbox" ? "confirmation-field" : undefined}>
+            {x.type !== "checkbox" && <>{x.label}{x.required ? " *" : ""}</>}
+            {x.type === "checkbox" ? (
+              <span className="confirmation-choice">
+                <input type="checkbox" name={x.key} value="yes"
+                  defaultChecked={x.value === "yes"} disabled={busy}
+                  {...form.props(x.key)} />
+                <span>{x.options?.[0]?.label ?? x.label}{x.required ? " *" : ""}</span>
+              </span>
+            ) : x.options ? (
               <select
                 name={x.key}
                 disabled={busy}

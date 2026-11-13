@@ -1,3 +1,4 @@
+import { useAuth } from "../context/AuthContext";
 import type { StudentSearchRequest } from "../types/dto";
 import { useAcademic } from "../context/AcademicContext";
 import { useState } from "react";
@@ -6,6 +7,7 @@ import { useUI } from "../context/UIContext";
 import { StudentForm } from "../components/academic-admin/StudentForm";
 import type { Student } from "../types/student";
 export function useStudentManagement() {
+  const { users } = useAuth();
   const { adminClasses: administrativeClasses } = useAcademic();
   const { studentData, updateStudents } = useDemoData();
   const { setDialog, notify } = useUI();
@@ -41,13 +43,7 @@ export function useStudentManagement() {
     classId: administrativeClasses.find(
       (c) => c.className === applied.className,
     )?.id,
-    activityStatus: applied.status
-      ? {
-          "Đang hoạt động": "STUDYING",
-          "Ngừng hoạt động": "DEACTIVATED",
-          "Đã xóa": "DELETED",
-        }[applied.status]
-      : undefined,
+
   };
   const filteredStudents = studentData.filter(
     (s) =>
@@ -60,8 +56,9 @@ export function useStudentManagement() {
           administrativeClasses.find((c) => c.id === searchRequest.classId)
             ?.className) &&
       (!applied.cohort || s.dto.cohortCode === applied.cohort) &&
-      (!searchRequest.activityStatus ||
-        s.dto.activityStatus === searchRequest.activityStatus),
+      (!applied.status ||
+        users.find(u => u.username === s.dto.studentCode && u.role === "STUDENT")?.status ===
+          ({ "Đang hoạt động": "ACTIVE", "Đã khóa": "LOCKED", "Vô hiệu hóa": "DISABLED" } as Record<string, string>)[applied.status]),
   );
   return {
     majorFilter,

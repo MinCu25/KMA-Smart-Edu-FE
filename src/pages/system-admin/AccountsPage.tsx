@@ -225,6 +225,7 @@ function AccountScreen({
       .length <= 1;
   async function execute(reason = "") {
     if (!detail || pending || detail.status === "DISABLED") return;
+    if (mode === "lock" && detail.status === "LOCKED") return;
     if (mode === "lock" && lastAdmin) {
       form.setFormError(
         "Không thể tự khóa quản trị hệ thống đang hoạt động cuối cùng.",
@@ -409,25 +410,29 @@ function AccountScreen({
                       <button className="btn" onClick={() => loadDetail(u)}>
                         Xem chi tiết
                       </button>
-                      <button
-                        className="btn"
-                        disabled={u.status === "DISABLED"}
-                        onClick={() =>
-                          loadDetail(
-                            u,
-                            u.status === "LOCKED" ? "unlock" : "lock",
-                          )
-                        }
-                      >
-                        {u.status === "LOCKED" ? "Mở khóa" : "Khóa"}
-                      </button>
-                      <button
-                        className="btn"
-                        disabled={u.status === "DISABLED"}
-                        onClick={() => loadDetail(u, "reset")}
-                      >
-                        Đặt lại mật khẩu
-                      </button>
+                      {u.status !== "DISABLED" && (
+                        <>
+                          <button
+                            className="btn"
+
+                            onClick={() =>
+                              loadDetail(
+                                u,
+                                u.status === "LOCKED" ? "unlock" : "lock",
+                              )
+                            }
+                          >
+                            {u.status === "LOCKED" ? "Mở khóa" : "Khóa"}
+                          </button>
+                          <button
+                            className="btn"
+
+                            onClick={() => loadDetail(u, "reset")}
+                          >
+                            Đặt lại mật khẩu
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -533,7 +538,7 @@ function AccountScreen({
             <>
               {mode === "detail" ? (
                 <>
-                  <dl className="academic-fields">
+                  <dl className="account-detail-fields">
                     {[
                       ["Tên đăng nhập", detail.username],
                       ["Họ tên", detail.fullName],
@@ -568,35 +573,45 @@ function AccountScreen({
                       </div>
                     ))}
                   </dl>
-                  <div className="dialog-actions">
-                    <button
-                      className="btn"
-                      disabled={pending || detail.status === "DISABLED"}
-                      onClick={() => {
-                        form.reset();
-                        setMode("lock");
-                      }}
-                    >
-                      Khóa tài khoản
-                    </button>
-                    {(detail.status === "LOCKED" ||
-                      detail.temporarilyLocked) && (
+                  {detail.status === "DISABLED" ? (
+                    <p className="notice yellow">
+                      Tài khoản đã bị vô hiệu hóa. Không thể khóa, mở khóa hoặc
+                      đặt lại mật khẩu.
+                      {!live &&
+                        detail.role === "STUDENT" &&
+                        " Admin học vụ cần kiểm tra hồ sơ và tái kích hoạt sinh viên."}
+                    </p>
+                  ) : (
+                    <div className="dialog-actions">
+                      {detail.status !== "LOCKED" && <button
+                        className="btn"
+                        disabled={pending}
+                        onClick={() => {
+                          form.reset();
+                          setMode("lock");
+                        }}
+                      >
+                        Khóa tài khoản
+                      </button>}
+                      {(detail.status === "LOCKED" ||
+                        detail.temporarilyLocked) && (
+                        <button
+                          className="btn"
+                          disabled={pending}
+                          onClick={() => setMode("unlock")}
+                        >
+                          {detail.temporarilyLocked ? "Gỡ khóa tạm" : "Mở khóa"}
+                        </button>
+                      )}
                       <button
                         className="btn"
-                        disabled={pending || detail.status === "DISABLED"}
-                        onClick={() => setMode("unlock")}
+                        disabled={pending}
+                        onClick={() => setMode("reset")}
                       >
-                        {detail.temporarilyLocked ? "Gỡ khóa tạm" : "Mở khóa"}
+                        Đặt lại mật khẩu
                       </button>
-                    )}
-                    <button
-                      className="btn"
-                      disabled={pending || detail.status === "DISABLED"}
-                      onClick={() => setMode("reset")}
-                    >
-                      Đặt lại mật khẩu
-                    </button>
-                  </div>
+                    </div>
+                  )}
                 </>
               ) : detail.status === "DISABLED" ? (
                 <p className="notice yellow">
@@ -639,14 +654,6 @@ function AccountScreen({
                     </p>
                   )}
                   <div className="dialog-actions">
-                    <button
-                      type="button"
-                      className="btn"
-                      disabled={pending}
-                      onClick={() => setMode("detail")}
-                    >
-                      Quay lại
-                    </button>
                     <button className="btn primary" disabled={pending}>
                       {pending ? "Đang xử lý…" : "Xác nhận khóa"}
                     </button>
